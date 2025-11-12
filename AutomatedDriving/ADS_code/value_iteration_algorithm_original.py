@@ -69,11 +69,11 @@ def value_iteration(env, theta=1.0, discount_factor=0.7):
                                 done = done_array[0]  # True if terminal state, False otherwise
 
                                 model_next_state[c, p1, p2, action] = next_state
-                                model_next_reward[c, p2, p2, action] = reward
+                                model_next_reward[c, p1, p2, action] = reward
                                 model_next_done[c, p1, p2, action] = done
                             else:
                                 next_state = model_next_state[c, p1, p2, action]
-                                reward = model_next_reward[c, p2, p2, action]
+                                reward = model_next_reward[c, p1, p2, action]
                                 done = model_next_done[c, p1, p2, action]
 
                             reward_scalar = reward
