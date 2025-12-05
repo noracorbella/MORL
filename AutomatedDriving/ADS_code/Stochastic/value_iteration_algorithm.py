@@ -61,24 +61,59 @@ def value_iteration(env, theta=1.0, discount_factor=0.7):
                         # Q-values for all actions in this state
                         q_values = np.zeros(n_actions)
 
+                        # Check if either pedestrian is in stochastic state
+                        p1_is_stochastic = np.array_equal(state_translated[1], stochastic_state)
+                        p2_is_stochastic = np.array_equal(state_translated[2], stochastic_state)
+
                         # For this state, try every action
                         for action in range(n_actions):
 
-
                             # Take action and observe next state and reward
                             if iteration == 1:
-                                # Sets environment to the state we are at
-                                env.reset(state_translated[0], state_translated[1], state_translated[2])
-                                next_state, reward, done_array = env.step([action])
-                                done = done_array[0]  # True if terminal state, False otherwise
+                                outcomes = [] # (next_state, reward, done, probability)
 
-                                model_next_state[c, p1, p2, action] = next_state
-                                model_next_reward[c, p1, p2, action] = reward
-                                model_next_done[c, p1, p2, action] = done
+                                if not p1_is_stochastic and not p2_is_stochastic:
+                                    # Deterministic case
+                                    env.reset(state_translated[0], state_translated[1], state_translated[2])
+                                    next_state, reward, done_array = env.step([action])
+                                    done = done_array[0]  
+                                    outcomes.append((next_state, reward, done, 1.0))
+
+                                elif p1_is_stochastic and not p2_is_stochastic:
+                                    for p1_action in pedestrian_stochastic_actions:
+
+                                        env.reset(state_translated[0], state_translated[1], state_translated[2])
+                                        next_state, reward, done_array = env.step([action, p1_action])
+                                        done = done_array[0]
+                                        prob = 1.0 / len(pedestrian_stochastic_actions)
+                                        outcomes.append((next_state, reward, done, prob))
+
+                                elif not p1_is_stochastic and p2_is_stochastic:
+                                    for p2_action in pedestrian_stochastic_actions:
+                                        env.reset(state_translated[0], state_translated[1], state_translated[2])
+                                        next_state, reward, done_array = env.step([action, None, p2_action])
+                                        done = done_array[0]
+                                        prob = 1.0 / len(pedestrian_stochastic_actions)
+
+                                        outcomes.append((next_state, reward, done, prob))
+                                else:
+                                    # Both pedestrians are stochastic
+                                    for p1_action in pedestrian_stochastic_actions:
+                                        for p2_action in pedestrian_stochastic_actions:
+                                            env.reset(state_translated[0], state_translated[1], state_translated[2])
+                                            next_state, reward, done_array = env.step([action, p1_action, p2_action])
+                                            done = done_array[0]
+                                            prob = 1.0 / (len(pedestrian_stochastic_actions) ** 2)
+                                            outcomes.append((next_state, reward, done, prob))
+                                
+                                model_next_state[(c, p1, p2, action)] = outcomes
+                                
                             else:
-                                next_state = model_next_state[c, p1, p2, action]
-                                reward = model_next_reward[c, p1, p2, action]
-                                done = model_next_done[c, p1, p2, action]
+                                outcomes = model_next_state[(c, p1, p2, action)]
+
+                            q_value = 0.0
+
+                            
 
                             reward_scalar = reward
 
