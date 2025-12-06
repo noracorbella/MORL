@@ -24,9 +24,9 @@ def value_iteration(env, theta=1.0, discount_factor=0.7):
     n_actions = env.n_actions
 
     V = np.zeros([n_cells, n_cells, n_cells])  # V table: each entry represents how good is it to be in this state
-    model_next_state = np.zeros([n_cells, n_cells, n_cells, n_actions, 3], dtype=int)
-    model_next_reward = np.zeros([n_cells, n_cells, n_cells, n_actions])
-    model_next_done = np.zeros([n_cells, n_cells, n_cells, n_actions])
+    model_next_state = {}  # dict to store multiple possible next states
+    model_next_reward = {}
+    model_next_done = {}
 
 
     policy = np.zeros([n_cells, n_cells, n_cells], dtype=int)  # For each state, which action should we take?
@@ -34,6 +34,8 @@ def value_iteration(env, theta=1.0, discount_factor=0.7):
 
     pedestrian_stochastic_actions = env.agents[1].move_map[3][3]
     stochastic_state = [3, 3]
+
+    weight_vect = np.array(env.weights) 
 
 
     iteration = 0
@@ -75,36 +77,37 @@ def value_iteration(env, theta=1.0, discount_factor=0.7):
                                 if not p1_is_stochastic and not p2_is_stochastic:
                                     # Deterministic case
                                     env.reset(state_translated[0], state_translated[1], state_translated[2])
-                                    next_state, reward, done_array = env.step([action])
+                                    next_state, reward_vect, done_array = env.step([action])
                                     done = done_array[0]  
-                                    outcomes.append((next_state, reward, done, 1.0))
+                                    prob = 1.0
+                                    outcomes.append((next_state, reward_vect, done, prob))
 
                                 elif p1_is_stochastic and not p2_is_stochastic:
                                     for p1_action in pedestrian_stochastic_actions:
 
                                         env.reset(state_translated[0], state_translated[1], state_translated[2])
-                                        next_state, reward, done_array = env.step([action, p1_action])
+                                        next_state, reward_vect, done_array = env.step([action, p1_action, 8000])
                                         done = done_array[0]
                                         prob = 1.0 / len(pedestrian_stochastic_actions)
-                                        outcomes.append((next_state, reward, done, prob))
+                                        outcomes.append((next_state, reward_vect, done, prob))
 
                                 elif not p1_is_stochastic and p2_is_stochastic:
                                     for p2_action in pedestrian_stochastic_actions:
                                         env.reset(state_translated[0], state_translated[1], state_translated[2])
-                                        next_state, reward, done_array = env.step([action, None, p2_action])
+                                        next_state, reward_vect, done_array = env.step([action, 8000, p2_action])
                                         done = done_array[0]
                                         prob = 1.0 / len(pedestrian_stochastic_actions)
 
-                                        outcomes.append((next_state, reward, done, prob))
+                                        outcomes.append((next_state, reward_vect, done, prob))
                                 else:
                                     # Both pedestrians are stochastic
                                     for p1_action in pedestrian_stochastic_actions:
                                         for p2_action in pedestrian_stochastic_actions:
                                             env.reset(state_translated[0], state_translated[1], state_translated[2])
-                                            next_state, reward, done_array = env.step([action, p1_action, p2_action])
+                                            next_state, reward_vect, done_array = env.step([action, p1_action, p2_action])
                                             done = done_array[0]
-                                            prob = 1.0 / (len(pedestrian_stochastic_actions) ** 2)
-                                            outcomes.append((next_state, reward, done, prob))
+                                            prob = 1.0 / (len(pedestrian_stochastic_actions) ** 2) # 0.25
+                                            outcomes.append((next_state, reward_vect, done, prob))
                                 
                                 model_next_state[(c, p1, p2, action)] = outcomes
                                 
@@ -113,22 +116,23 @@ def value_iteration(env, theta=1.0, discount_factor=0.7):
 
                             q_value = 0.0
 
+                            for next_state, reward_vect, done, prob in outcomes:
+                                reward_scalar = np.dot(reward_vect, weight_vect)
+
+                                if done:
+                                    q_value += prob * reward_scalar
+                                else:
+                                    next_value = V[next_state[0], next_state[1], next_state[2]]
+                                    q_value += prob * (reward_scalar + discount_factor * next_value)
                             
-
-                            reward_scalar = reward
-
-                            # Bellman optimality equation:
-                            # V(s) <- max(actions) sum(states) T(s'|s, a)[R(s, a, s') + gamma * V(s')]
-                            if done:
-                                # Terminal state - no future value (q value is the immediate reward)
-                                q_values[action] = reward_scalar
-                            else:
-                                # Q(s,a) = r(s,a) + γ * V(s')
-                                q_values[action] = (
-                                    reward_scalar
-                                    + discount_factor
-                                    * V[next_state[0], next_state[1], next_state[2]]
-                                )
+                            if not isinstance(q_value, (int, float, np.floating)):
+                                print(f"ERROR DEBUG:")
+                                print(f"  State: c={c}, p1={p1}, p2={p2}, action={action}")
+                                print(f"  q_value type: {type(q_value)}")
+                                print(f"  q_value: {q_value}")
+                                print(f"  outcomes: {outcomes}")
+                            
+                            q_values[action] = q_value
 
                         # Store Q-values for this state
                         Q[c, p1, p2] = q_values
