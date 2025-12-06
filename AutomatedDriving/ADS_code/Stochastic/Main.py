@@ -1,6 +1,6 @@
 import numpy as np
 from ADS_Environment import Environment
-from value_iteration_algorithm_original import value_iteration
+from VI_algorithm_stochastic import value_iteration
 from q_learning_algorithm import q_learning
 from convexhull_VI import convexhull_VI, extract_policy_for_weights
 from auxiliary_functions import tester
@@ -10,12 +10,12 @@ VALUE_ITERATION = 1
 CONVEX_HULL_VI = 2 
 
 if __name__ == "__main__":
-    Training = False  # Set to True to apply algorithm. Set to false to directly observed learned policy.
+    Training = True  # Set to True to apply algorithm. Set to false to directly observed learned policy.
     weights = [1.0, 100.0, 100.0]
-    algorithm_used = CONVEX_HULL_VI
+    algorithm_used = VALUE_ITERATION
 
-    train_policy_name = "policies/policy_democratic.npy"
-    test_policy_name = "policies/policy_democratic.npy"
+    train_policy_name = "policies/VI_stochastic_1-100-100-policy.npy"
+    test_policy_name = "policies/VI_stochastic_1-100-100-policy.npy"
     # hulls_name = "policies/convexhull_qhulls.npy"
 
     if Training:

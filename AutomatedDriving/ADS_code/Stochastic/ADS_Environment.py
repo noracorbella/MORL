@@ -531,10 +531,11 @@ class Environment:
         dones.append(done)
         if self.internal_damage:
             self.internal_damage=False
-        # rewards[0] only takes rewards from left agent
+        
+        # rewards is [array([-1.,  0.,  0.])] and we extract [-, -, -]
         rewards = rewards[0]
-        if self.weights is not None:
-            rewards = np.dot(np.array(rewards), self.weights)
+        # if self.weights is not None:
+        #     rewards = np.dot(np.array(rewards), self.weights)
         return self.get_state(), rewards, dones
 
 
