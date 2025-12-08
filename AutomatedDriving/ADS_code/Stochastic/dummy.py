@@ -34,3 +34,6 @@ print(next_state, reward_vect, done_array, "\n" )
 # reward_scalar = np.dot(reward_vect, weight_vect)
 # print(reward_scalar)
 
+a = [1,2,3]
+a.extend([4,5])
+print(a)
