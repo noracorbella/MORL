@@ -3,7 +3,7 @@ from ADS_Environment import Environment
 from LG_VI_stochastic import LG_VI
 from q_learning_algorithm import q_learning
 from CH_VI_stochastic import convexhull_VI, extract_policy_for_weights
-from auxiliary_functions import tester
+from auxiliary_functions import tester, test_policy_vectorial, tester_vect
 
 Q_LEARNING = 0
 LG_VI = 1
@@ -22,6 +22,11 @@ if __name__ == "__main__":
     # For LG_VI
     LG_Training = True # True: train lexicographic policy, False: load existing
     LG_priority = 'car'  # 'car' or 'pedestrian'
+
+    # Testing configuration
+    Test_with_vectorial = True # Use vectorial reward to test
+    Test_Episodes = 100 # Numbero of episodes to test
+    Show_visualisation = True
 
     weights = [10.0, 0.0, 10.0]
 
@@ -48,23 +53,27 @@ if __name__ == "__main__":
             print(f"\nSaved policy to {LG_policy}")
             print(f"Saved Q-values to {LG_Q}\n")
 
-            print("Testing trained policy...")
-            test_env = Environment(weights=weights)
-            tester(test_env, policy, drawing=True)
-
+            
         else:
             print("Testing Lexicographic Value Iteration")
             print(f"{LG_priority.upper()} priority")
             print(f"Testing policy {LG_policy}\n")
-            policy = np.load(LG_policy)
 
-            env = Environment(weights=weights)
-            tester(env, policy, drawing=True)
+ 
+        
+        print("Testing trained policy...")
+
+        env = Environment(weights=None)
+        if Test_with_vectorial:
+            print(f"Testing policy over {Test_Episodes} episodes...")
+            results = test_policy_vectorial(env, policy, num_episodes=Test_Episodes, verbose=True)
+
+        if Show_visualisation:
+            tester_vect(env, policy, drawing=True)
 
     
     
-    
-    if algorithm_used == CONVEX_HULL_VI:
+    if algorithm_used == CH_VI:
         if Calculate_hulls:
             env = Environment(weights=None) 
             env.weights = weights
