@@ -1,10 +1,28 @@
 import numpy as np
 from tqdm import tqdm
 
-# The Markov property in MDPs means that the future states and rewards are independent of past states and actions,
+def lex_max(q_vectors, priority = 'car'):
+    if priority == 'car':
+        objective_order = [0,1,2]
+    else:
+        objective_order = [1,2,0]
+    
+    for idx in objective_order:
+        if len(best_actions) == 1:
+            # only one action left
+            break
 
+        # get q values of this objective for all possible actions
+        obj_values = q_vectors[best_actions, idx]
+        # keep actions that maximise this objective
+        max_value = np.max(obj_values)
 
-def value_iteration(env, theta=1.0, discount_factor=0.7):
+        best_actions = [best_actions[i] for i in range(len(best_actions)) if q_vectors[i, idx] == max_value]
+
+    # return the first reamaining action
+    return best_actions[0]
+
+def LG_VI(env, theta=1.0, discount_factor=0.7, priority = 'car'):
     """
     Value Iteration Algorithm as defined in Sutton and Barto's 'Reinforcement Learning: An Introduction' Section 4.4,
     (1998).
@@ -22,20 +40,17 @@ def value_iteration(env, theta=1.0, discount_factor=0.7):
     # Initialize value function and policy
     n_cells = env.map_num_cells
     n_actions = env.n_actions
+    n_objectives = 3
 
-    V = np.zeros([n_cells, n_cells, n_cells])  # V table: each entry represents how good is it to be in this state
+    V = np.zeros([n_cells, n_cells, n_cells, n_objectives])  # V table: each entry represents how good is it to be in this state
     model_next_state = {}  # dict to store multiple possible next states
-    model_next_reward = {}
-    model_next_done = {}
 
 
     policy = np.zeros([n_cells, n_cells, n_cells], dtype=int)  # For each state, which action should we take?
-    Q = np.zeros([n_cells, n_cells, n_cells, n_actions])  # For each state-action pair, what's the expected total reward?
+    Q = np.zeros([n_cells, n_cells, n_cells, n_actions, n_objectives])  # For each state-action pair, what's the expected total reward?
 
     pedestrian_stochastic_actions = env.agents[1].move_map[3][3]
     stochastic_state = [3, 3]
-
-    weight_vect = np.array(env.weights) 
 
 
     iteration = 0
@@ -58,10 +73,10 @@ def value_iteration(env, theta=1.0, discount_factor=0.7):
                         state = np.array([c, p1, p2])
                         state_translated = env.translate_state(state)
 
-                        v_old = V[c, p1, p2]
+                        v_old = V[c, p1, p2].copy()
 
-                        # Q-values for all actions in this state
-                        q_values = np.zeros(n_actions)
+                        q_vectors = np.zeros((n_actions, n_objectives))
+
 
                         # Check if either pedestrian is in stochastic state
                         p1_is_stochastic = np.array_equal(state_translated[1], stochastic_state)
@@ -114,34 +129,32 @@ def value_iteration(env, theta=1.0, discount_factor=0.7):
                             else:
                                 outcomes = model_next_state[(c, p1, p2, action)]
 
-                            q_value = 0.0
+
+                            q_vector = np.zeros(n_objectives)
 
                             for next_state, reward_vect, done, prob in outcomes:
-                                reward_scalar = np.dot(reward_vect, weight_vect)
 
                                 if done:
-                                    q_value += prob * reward_scalar
+                                    q_vector += prob * reward_vect
                                 else:
                                     next_value = V[next_state[0], next_state[1], next_state[2]]
-                                    q_value += prob * (reward_scalar + discount_factor * next_value)
+                                    q_vector += prob * (reward_vect + discount_factor * next_value)
+                                
                             
-                            if not isinstance(q_value, (int, float, np.floating)):
-                                print(f"ERROR DEBUG:")
-                                print(f"  State: c={c}, p1={p1}, p2={p2}, action={action}")
-                                print(f"  q_value type: {type(q_value)}")
-                                print(f"  q_value: {q_value}")
-                                print(f"  outcomes: {outcomes}")
+                
                             
-                            q_values[action] = q_value
+                            q_vectors[action] = q_vector
+
+                            
 
                         # Store Q-values for this state
-                        Q[c, p1, p2] = q_values
+                        Q[c, p1, p2] = q_vectors
 
-                        # Update value function: V(s) = max_a Q(s,a)
-                        V[c, p1, p2] = np.max(q_values)
+                        best_action = lex_max(q_vectors, priority=priority)
+                        V[c, p1, p2] = q_vectors[best_action]
 
                         # Update delta - maximum change in value function
-                        delta = max(delta, abs(v_old - V[c, p1, p2]))
+                        delta = max(delta, np.max(np.abs(v_old - V[c, p1, p2])))
 
                         pbar.update(1)
 
