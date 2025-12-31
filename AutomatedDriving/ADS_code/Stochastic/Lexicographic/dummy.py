@@ -37,3 +37,8 @@ print(next_state, reward_vect, done_array, "\n" )
 a = [1,2,3]
 a.extend([4,5])
 print(a)
+
+
+q_vectors = np.zeros((10, 11))
+best_actions = list(range(10))
+print(best_actions)

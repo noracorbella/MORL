@@ -1,24 +1,46 @@
 import numpy as np
 from tqdm import tqdm
 
-def lex_max(q_vectors, priority = 'car'):
+def lex_max(q_vectors, priority='car'):
+    """
+    Lexicographic maximisation implementing Eq. (5) from Vamplew et al. (2021).
+    
+    Args:
+        q_vectors: array of shape (n_actions, n_objectives)
+        priority: 'car' or 'pedestrian'
+    
+    Returns:
+        Index of the lexicographically best action
+    """
+
+    n_actions = q_vectors.shape[0]
+
     if priority == 'car':
         objective_order = [0,1,2]
     else:
         objective_order = [1,2,0]
+
+    best_actions = list(range(n_actions)) # initialisation, all actions are candidates
     
-    for idx in objective_order:
+    for obj_idx in objective_order:
         if len(best_actions) == 1:
             # only one action left
             break
 
         # get q values of this objective for all possible actions
-        obj_values = q_vectors[best_actions, idx]
+        obj_values = [q_vectors[action, obj_idx] for action in best_actions]
         # keep actions that maximise this objective
-        max_value = np.max(obj_values)
+        max_val = np.max(obj_values)
+        new_best_actions = []
+        for i, action in enumerate(best_actions):
+            if abs(obj_values[i] == max_val):
+                new_best_actions.append(action)
+        
+        best_actions = new_best_actions
 
-        best_actions = [best_actions[i] for i in range(len(best_actions)) if q_vectors[i, idx] == max_value]
-
+        if len(best_actions) == 0:
+            print(f"WARNING: No actions left! Returning 0")
+            return 0
     # return the first reamaining action
     return best_actions[0]
 
@@ -172,6 +194,34 @@ def LG_VI(env, theta=1.0, discount_factor=0.7, priority = 'car'):
     for c in range(n_cells):
         for p1 in range(n_cells):
             for p2 in range(n_cells):
-                policy[c, p1, p2] = np.argmax(Q[c, p1, p2])
+                policy[c, p1, p2] = lex_max(Q[c, p1, p2], priority=priority)  # ← Ha de ser lex_max!
 
     return policy, Q
+
+
+if __name__ == "__main__":
+    # Test de lex_max
+    import numpy as np
+    
+    # Q-vectors d'exemple
+    q_vectors = np.array([
+        [10.0, 5.0, 5.0],   # Action 0: millor per car
+        [8.0, 8.0, 8.0],    # Action 1: equilibrat
+        [5.0, 10.0, 10.0],  # Action 2: millor per pedestrians
+        [9.0, 9.0, 7.0],    # Action 3: compromís
+        [10.0, 6.0, 4.0],   # Action 4: també bo per car
+        [7.0, 10.0, 9.0]    # Action 5: també bo per pedestrians
+    ])
+    
+    print("Testing lex_max:")
+    print(f"Q-vectors:\n{q_vectors}\n")
+    
+    best_car = lex_max(q_vectors, priority='car')
+    print(f"Best action (car priority): {best_car}")
+    print(f"  → Q-vector: {q_vectors[best_car]}")
+    print(f"  → Expected: 0 or 4 (both have max r_car=10)")
+    
+    best_ped = lex_max(q_vectors, priority='pedestrian')
+    print(f"\nBest action (pedestrian priority): {best_ped}")
+    print(f"  → Q-vector: {q_vectors[best_ped]}")
+    print(f"  → Expected: 2 or 5 (both have max r_ped1=10)")
