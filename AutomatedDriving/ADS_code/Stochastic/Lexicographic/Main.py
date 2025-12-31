@@ -6,11 +6,11 @@ from CH_VI_stochastic import convexhull_VI, extract_policy_for_weights
 from auxiliary_functions import tester, test_policy_vectorial, tester_vect
 
 Q_LEARNING = 0
-LG_VI = 1
-CH_VI = 2 
+LEXICOGRAPHIC_VALUE_ITERATION = 1
+CONVEX_HULL_VALUE_ITERATION = 2 
 
 if __name__ == "__main__":
-    algorithm_used = LG_VI
+    algorithm_used = LEXICOGRAPHIC_VALUE_ITERATION
   
 
     # For CONVEX_HULL_VI
@@ -19,24 +19,27 @@ if __name__ == "__main__":
     # For Q_LEARNING
     Training = False        # True: train and save policy, False: load and test existing policy
 
-    # For LG_VI
+    # For LEXICOGRAPHIC_VALUE_ITERATION
     LG_Training = True # True: train lexicographic policy, False: load existing
-    LG_priority = 'car'  # 'car' or 'pedestrian'
+    LG_priority = 'pedestrian'  # 'car' or 'pedestrian'
 
     # Testing configuration
     Test_with_vectorial = True # Use vectorial reward to test
     Test_Episodes = 100 # Numbero of episodes to test
     Show_visualisation = True
 
-    weights = [10.0, 0.0, 10.0]
+    weights = [1.0, 100.0, 100.0]
 
     hulls_name = "policies/CH_qhulls.npy"
     chvi_policy_name = f"policies/CHVI_{weights[0]}-{weights[1]}-{weights[2]}-policy.npy"
-    LG_policy = f"policies/LG_VI_{LG_priority}_priority-policy.npy"
-    LG_Q = f"policies/LG_VI_{LG_policy}_priority-Q.npy"
+    LG_policy_name = f"policies/LGVI_{LG_priority}_priority-policy.npy"
+    LG_Q_name = f"policies/LGVI_{LG_priority}_priority-Q.npy"
 
 
-    if algorithm_used == LG_VI:
+    # #########################################################################
+    # LEXICOGRAPHIC VALUE ITERATION
+    # #########################################################################
+    if algorithm_used == LEXICOGRAPHIC_VALUE_ITERATION:
         if LG_Training:
             print("Training Lexicographic Value Iteration")
             print(f"{LG_priority.upper()} priority")
@@ -47,23 +50,26 @@ if __name__ == "__main__":
             policy, Q = LG_VI(env, theta=0.01, discount_factor=0.7, priority=LG_priority)
 
             # save
-            np.save(LG_policy, policy)
-            np.save(LG_policy, Q, allow_pickle=True)
+            np.save(LG_policy_name, policy)
+            np.save(LG_Q_name, Q, allow_pickle=True)
 
-            print(f"\nSaved policy to {LG_policy}")
-            print(f"Saved Q-values to {LG_Q}\n")
+            print(f"\nSaved policy to {LG_policy_name}")
+            print(f"Saved Q-values to {LG_Q_name}\n")
 
             
         else:
             print("Testing Lexicographic Value Iteration")
             print(f"{LG_priority.upper()} priority")
-            print(f"Testing policy {LG_policy}\n")
+            print(f"Testing policy {LG_policy_name}\n")
+
+            policy = np.load(LG_policy_name)
 
  
         
         print("Testing trained policy...")
 
         env = Environment(weights=None)
+
         if Test_with_vectorial:
             print(f"Testing policy over {Test_Episodes} episodes...")
             results = test_policy_vectorial(env, policy, num_episodes=Test_Episodes, verbose=True)
@@ -71,9 +77,12 @@ if __name__ == "__main__":
         if Show_visualisation:
             tester_vect(env, policy, drawing=True)
 
+
+    # #########################################################################
+    # CONVEX HULL VALUE ITERATION
+    # #########################################################################    
     
-    
-    if algorithm_used == CH_VI:
+    if algorithm_used == CONVEX_HULL_VALUE_ITERATION:
         if Calculate_hulls:
             env = Environment(weights=None) 
             env.weights = weights
@@ -95,23 +104,23 @@ if __name__ == "__main__":
             print("Testing policy...\n")
             tester(env, policy, drawing=True)
 
-    else:
+    # #########################################################################
+    # Q-LEARNING
+    # #########################################################################    
+    
+    elif algorithm_used == Q_LEARNING:
         if Training:
             print(f"Training {['Q-Learning', 'Value Iteration'][algorithm_used]}\n")
             print(f"Weights: {weights}\n")
 
             env = Environment(weights=weights)
-            save = True
 
-            if algorithm_used == Q_LEARNING:
-                policy, q = q_learning(env, alpha=0.8, gamma=0.7)
-            elif algorithm_used == VALUE_ITERATION:
-                policy, q = value_iteration(env, discount_factor=0.7)
+            policy, q = q_learning(env, alpha=0.8, gamma=0.7)
 
+            q_policy_name = f"policies/QL_{weights[0]}-{weights[1]}-{weights[2]}-policy.npy"
                 
-            if save:
-                np.save(train_policy_name, policy)
-                print(f"Saved policy to {train_policy_name}\n")
+            np.save(q_policy_name, policy)
+            print(f"Saved policy to {q_policy_name}\n")
 
             print("-------------------")
             print("Finnished!!!")
@@ -122,15 +131,9 @@ if __name__ == "__main__":
         
         else:
             # TESTING ONLY
-            
-            if train_policy_name != test_policy_name:
-                print("WARNING: Notice that the policy that will appear now is not the policy previously trained!!")
-            
-            print(f"Loading policy from {test_policy_name}...\n")
-            policy = np.load(test_policy_name)
-            print("Policy loaded successfully\n")
-
+            q_policy_name = f"policies/QL_{weights[0]}-{weights[1]}-{weights[2]}-policy.npy"
+            policy = np.load(q_policy_name)
             env = Environment(weights=weights)
-            
-            print("Testing policy...\n")
             tester(env, policy, drawing=True)
+            
+     

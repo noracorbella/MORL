@@ -1,5 +1,7 @@
 import time
 import threading
+import numpy as np
+
 
 RIGHT = 0
 UP = 1
@@ -102,11 +104,11 @@ class tester:
             env.render('Evaluating')
 
 def test_policy_vectorial(env, policy, num_episodes=100, verbose=True):
-
+    import numpy as np
     # store vect rewards
-    all_r_c = []
-    all_r_p1 = []
-    all_r_p2 = []
+    all_r_car = []
+    all_r_ped1 = []
+    all_r_ped2 = []
     all_steps = []
     all_collisions = []
 
@@ -116,9 +118,9 @@ def test_policy_vectorial(env, policy, num_episodes=100, verbose=True):
         done = False
         step_count = 0
 
-        ep_r_c = 0.0
-        ep_r_p1 = 0.0
-        ep_r_p2 = 0.0
+        ep_r_car = 0.0
+        ep_r_ped1 = 0.0
+        ep_r_ped2 = 0.0
         collisions = 0
 
         while not done and step_count < 200:
@@ -128,32 +130,32 @@ def test_policy_vectorial(env, policy, num_episodes=100, verbose=True):
             next_state, reward_vector, done_array = env.step([action])
             done = done_array[0]
 
-            r_c, r_p1, r_p2 = reward_vector[0], reward_vector[1], reward_vector[2]
+            r_car, r_ped1, r_ped2 = reward_vector[0], reward_vector[1], reward_vector[2]
 
-            ep_r_c += r_c
-            ep_r_p1 += r_p1
-            ep_r_p2 += r_p2
+            ep_r_car += r_car
+            ep_r_ped1 += r_ped1
+            ep_r_ped2 += r_ped2
             
 
-            if r_p1 < 0 or r_p2 < 0:
+            if r_ped1 < 0 or r_ped2 < 0:
                 collisions += 1 
             
             state = next_state
             step_count += 1
 
-        all_r_c.append(ep_r_c)
-        all_r_p1.append(ep_r_p1)
-        all_r_p2.append(ep_r_p2)
+        all_r_car.append(ep_r_car)
+        all_r_ped1.append(ep_r_ped1)
+        all_r_ped2.append(ep_r_ped2)
         all_steps.append(step_count)
         all_collisions.append(collisions)
 
     results = {
-        'mean_r_c': np.mean(all_r_c),
-        'mean_r_p1': np.mean(all_r_p1),
-        'mean_r_p1': np.mean(all_r_p1),
-        'std_r_c': np.std(all_r_c),
-        'std_r_p1': np.std(all_r_p1),
-        'std_r_p2': np.std(all_r_p2),
+        'mean_r_car': np.mean(all_r_car),   
+        'mean_r_ped1': np.mean(all_r_ped1),
+        'mean_r_ped2': np.mean(all_r_ped2),
+        'std_r_car': np.std(all_r_car),
+        'std_r_ped1': np.std(all_r_ped1),
+        'std_r_ped2': np.std(all_r_ped2),
         'mean_steps': np.mean(all_steps),
         'total_collisions': np.sum(all_collisions),
         'collision_rate': np.sum(all_collisions) / num_episodes
@@ -163,9 +165,9 @@ def test_policy_vectorial(env, policy, num_episodes=100, verbose=True):
         print(f"\nEpisodes tested: {num_episodes}")
         print(f"Mean steps per episode: {results['mean_steps']:.1f}")
         print("\nMean Vectorial Rewards per Episode:")
-        print(f"  r_c:  {results['mean_r_c']:8.2f} $\pm$ {results['std_r_c']:.2f}")
-        print(f"  r_p1: {results['mean_r_p1']:8.2f} $\pm$ {results['std_r_p1']:.2f}")
-        print(f"  r_p2: {results['mean_r_p2']:8.2f} $\pm$ {results['std_r_p2']:.2f}")
+        print(f"  r_car :       {results['mean_r_car']:8.2f} ± {results['std_r_car']:.2f}")
+        print(f"  r_ped1:     {results['mean_r_ped1']:8.2f} ± {results['std_r_ped1']:.2f}")
+        print(f"  r_ped2:     {results['mean_r_ped2']:8.2f} ± {results['std_r_ped2']:.2f}")
         print(f"\nTotal collisions: {results['total_collisions']}")
         print(f"Collision rate: {results['collision_rate']*100:.1f}% of steps")
 
@@ -198,8 +200,8 @@ def example_execution_vect(env, policy, render=False):
 
             c, p1, p2 = state[0], state[1], state[2]
 
-            actions = policy[c, p1, p2]
-            actions = [aciton]
+            action = policy[c, p1, p2]
+            actions = [action]
 
             # # DEBUGGING
             # if stop:
@@ -234,8 +236,7 @@ def example_execution_vect(env, policy, render=False):
                     env.update_window()
 
 class tester_vect:
-
     def __init__(self, env, policy, drawing=False):
-        threading.Thread(target=example_execution, args=(env, policy, drawing,)).start()
+        threading.Thread(target=example_execution_vect, args=(env, policy, drawing,)).start()
         if drawing:
             env.render('Evaluating')
