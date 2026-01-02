@@ -2,7 +2,7 @@ import numpy as np
 from tqdm import tqdm
 from CH_operations import get_hull, translate_hull, sum_hulls, max_q_value
 
-def convexhull_VI(env, theta=0.01, discount_factor=0.7):
+def LG_CH_VI(env, theta=0.01, discount_factor=0.7):
 
     n_cells = env.map_num_cells
     n_actions = env.n_actions
@@ -30,7 +30,7 @@ def convexhull_VI(env, theta=0.01, discount_factor=0.7):
     iteration = 0
     total_states = len(env.states_agent_left) * len(env.states_agent_right) ** 2 # n_cells * n_cells * n_cells
 
-    print(f"Starting CHVI with {total_states} states and {n_actions} actions")
+    print(f"Starting LGCHVI with {total_states} states and {n_actions} actions")
     print(f"Total evaluations per iteration: {total_states * n_actions}")
 
     while True:
@@ -188,8 +188,6 @@ def convexhull_VI(env, theta=0.01, discount_factor=0.7):
     # env.weights = weight_vect
     env.weights = saved_weights
     
-    
-    
     return Q_hulls
 
 
@@ -230,3 +228,112 @@ def extract_policy_for_weights(Q_hulls, weights, env, n_actions):
                 policy[c, p1, p2] = best_action
     print("Policy extraction complete!")
     return policy
+
+def lex_max_hull(hulls_per_action, priority='car'):
+    """
+    Lexicographic maximisation over Q-hulls.
+    
+    For each action, we have a hull (set of Q-vectors).
+    We need to find the action whose hull contains the lexicographically best vector.
+    
+    Args:
+        hulls_per_action: List of hulls, one per action. Each hull is array of shape (n_vertices, n_objectives)
+        priority: 'car' or 'pedestrian'
+    
+    Returns:
+        Index of the lexicographically best action
+    """
+    n_actions = len(hulls_per_action)
+
+    if priority == 'car':
+        objective_order = [0,1,2]
+    else:
+        objective_order = [1,2,0]
+    
+    best_actions = list(range(n_actions))
+    tol = 1e-9
+
+    # for each obj in the priority order
+    for obj_idx in objective_order:
+        if len(best_actions) <= 1:
+            break
+        
+        # for each action find the max value of this obj in its hull
+        max_values_per_action = []
+        for action in best_actions:
+            hull = hulls_per_action[action]
+            if not isinstance(hull, np.ndarray):
+                hull = np.array(hull)
+
+            # max value of the objective across all vectors in this hull
+            if len(hull) > 0:
+                max_val_in_hull = np.max(hull[:, obj_idx])
+            else:
+                max_val_in_hull = -np.inf
+            
+            max_values_per_action.append(max_val_in_hull)
+
+        global_max = max(max_values_per_action) # global max for this obj
+
+        # keep actions that achieve global max
+        new_best_actions = []
+        for i, action in enumerate(best_actions):
+            if abs(max_values_per_action[i] - global_max) < tol:
+                new_best_actions.append(action)
+
+        best_actions = new_best_actions
+
+        if len(best_actions) == 0:
+            print(f"WARNING: No actions left in lex_max_hull! Returning 0")
+            return 0
+    
+    return best_actions[0]
+
+def extract_lexicographic_policy(Q_hulls, priority, env, n_actions):
+    """
+    Extract a lexicographic policy from Q-hulls.
+    
+    This is the WEIGHT-FREE approach: for each state, choose the action whose hull
+    contains the lexicographically best Q-vector.
+    
+    Args:
+        Q_hulls: Dictionary of Q-hulls from CHVI
+        priority: 'car' for lexP or 'pedestrian' for lexA
+        env: Environment
+        n_actions: Number of actions
+    
+    Returns:
+        policy: Array of shape [n_cells, n_cells, n_cells]
+    """
+    n_cells = env.map_num_cells
+    policy = np.zeros([n_cells, n_cells, n_cells], dtype=int)
+    
+    print(f"\nExtracting LEXICOGRAPHIC policy from Q-hulls")
+    print(f"Priority: {priority.upper()}")
+    print("-" * 80)
+    
+    for c in env.states_agent_left:
+        for p1 in env.states_agent_right:
+            for p2 in env.states_agent_right:
+                # Collect hulls for all actions in this state
+                hulls_per_action = []
+                for action in range(n_actions):
+                    hull = Q_hulls[(c, p1, p2, action)]
+                    if not isinstance(hull, np.ndarray):
+                        hull = np.array(hull)
+                    hulls_per_action.append(hull)
+                
+                # Find lexicographically best action
+                best_action = lex_max_hull(hulls_per_action, priority=priority)
+                policy[c, p1, p2] = best_action
+    
+    return policy
+
+def extract_lexP_policy(Q_hulls, env, n_actions):
+    """Extract lexP policy (car priority) from Q-hulls."""
+    return extract_lexicographic_policy(Q_hulls, priority='car', env=env, n_actions=n_actions)
+
+
+def extract_lexA_policy(Q_hulls, env, n_actions):
+    """Extract lexA policy (pedestrian priority) from Q-hulls."""
+    return extract_lexicographic_policy(Q_hulls, priority='pedestrian', env=env, n_actions=n_actions)
