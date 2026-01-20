@@ -1,1 +1,4 @@
 FirstSteps/
+__pycache__/
+*.pyc
+.venv/

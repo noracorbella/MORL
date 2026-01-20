@@ -40,25 +40,22 @@ def get_hull(points):
 def translate_hull(point, gamma, hull):
     """
     From Barret and Narananyan's 'Learning All Optimal Policies with Multiple Criteria' (2008)
-
     Translation and scaling operation of convex hulls (definition 1 of the paper).
-
     :param point: a numpy array
     :param gamma: a real number
     :param hull: a set of points, they need to be numpy arrays
     :return: the new convex hull, a new set of points
     """
-
     if len(hull) == 0:
-        hull = [point]
+        hull = np.array([point])
+        # hull = [point]
     else:
-
-        hull = np.multiply(hull, gamma, casting="unsafe")
-
-        if len(point) > 0:
+       hull = np.multiply(hull, gamma, casting="unsafe")
+       if len(point) > 0:
             hull = np.add(hull, point, casting="unsafe")
-
     return hull
+
+
 
 
 def sum_hulls(hull_1, hull_2):
