@@ -46,7 +46,7 @@ if __name__ == "__main__":
     
     # For LEXICOGRAPHIC_VALUE_ITERATION
     LG_Training = False  # True: train, False: load
-    LG_priority = [2,1,0]  # [0,1,2] for car first, [1,2,0] for pedestrian1 first, [2,1,0] for pedestrian2 first
+    LG_priority = [0,1,2]  # [0,1,2] for car first, [1,2,0] for pedestrian1 first, [2,1,0] for pedestrian2 first
     LG_priority_str = f"{LG_priority[0]}-{LG_priority[1]}-{LG_priority[2]}" 
     lg_policy_name = f"policies/LGVI_v2_{LG_priority_str}_priority-policy.npy"
     lg_Q_name = f"policies/LGVI_v2_{LG_priority_str}_priority-Q.npy"

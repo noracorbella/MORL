@@ -110,6 +110,14 @@ if __name__ == "__main__":
 
     env = Environment()
 
+    initial_state = [
+        env.initial_agent_left_position,
+        env.initial_pedestrian_1_position,
+        env.initial_pedestrian_2_position
+    ]
+
+    print(f"Initial state: {initial_state}")
+    
     # priorities to compare
     priority1 = [0,1,2]
     priority2 = [2,1,0]
