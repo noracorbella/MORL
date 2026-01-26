@@ -10,6 +10,7 @@ This script:
 
 import numpy as np
 import time
+import gc
 from LG_utils import generate_all_priority_orders
 from LG_VI_stoc_lexmax import LG_VI_lexmax
 from LG_VI_stoc_lexhull import LG_VI_lexhull
@@ -60,25 +61,34 @@ def compare_q_values(Q1, Q2, priority_name, tolerance=1e-9):
     }
 
 
-def main():
-    """Run the verification."""
+def main(quick_test=False):
+    """Run the verification.
+
+    Args:
+        quick_test: If True, only test 2 priority orders for quick verification
+    """
 
     print("="*80)
     print("VERIFICATION: LG_VI_lexmax vs LG_VI_lexhull")
     print("="*80)
-
-    # Initialize environment
-    print("\n[1/4] Initializing environment...")
-    env = ADS_Environment()
 
     # Parameters
     theta = 1.0
     discount_factor = 0.7
     n_objectives = 3
 
-    # Get all priority orders
+    # Get priority orders to test
     all_priorities = generate_all_priority_orders(n_objectives)
-    print(f"      Will test {len(all_priorities)} priority orders: {all_priorities}")
+
+    if quick_test:
+        # For quick testing: only test 2 priorities
+        priorities_to_test = [all_priorities[0], all_priorities[1]]
+        print(f"\n[QUICK TEST MODE]")
+        print(f"      Testing {len(priorities_to_test)} priority orders: {priorities_to_test}")
+    else:
+        priorities_to_test = all_priorities
+        print(f"\n[FULL TEST MODE]")
+        print(f"      Testing all {len(priorities_to_test)} priority orders: {priorities_to_test}")
 
     # ========================================================================
     # APPROACH 1: Run LG_VI_lexmax for each priority order
@@ -87,12 +97,12 @@ def main():
     print("-"*80)
 
     lexmax_policies = {}
-    lexmax_Q_tables = {}
+    lexmax_Q_reference = None  # Only store one Q-table (they're all the same)
     lexmax_times = {}
 
     total_lexmax_time_start = time.time()
 
-    for priority in all_priorities:
+    for priority in priorities_to_test:
         priority_tuple = tuple(priority)
         print(f"\n  Running for priority {priority_tuple}...")
 
@@ -106,14 +116,21 @@ def main():
         elapsed = end_time - start_time
         lexmax_times[priority_tuple] = elapsed
         lexmax_policies[priority_tuple] = policy
-        lexmax_Q_tables[priority_tuple] = Q
 
-        print(f"  ✓ Completed in {elapsed:.2f}s")
+        # Only store Q-table from first run (all runs produce same Q)
+        if lexmax_Q_reference is None:
+            lexmax_Q_reference = Q.copy()
+
+        # Explicitly clean up large objects
+        del Q, policy, env
+        gc.collect()
+
+        print(f"  ✓ Completed in {elapsed:.2f}s (memory cleaned)")
 
     total_lexmax_time = time.time() - total_lexmax_time_start
 
     print(f"\n  TOTAL TIME (lexmax): {total_lexmax_time:.2f}s")
-    print(f"  Average per priority: {total_lexmax_time/len(all_priorities):.2f}s")
+    print(f"  Average per priority: {total_lexmax_time/len(priorities_to_test):.2f}s")
 
     # ========================================================================
     # APPROACH 2: Run LG_VI_lexhull once
@@ -142,7 +159,7 @@ def main():
     print("\n  Policy Comparison:")
     print("  " + "-"*76)
 
-    for priority in all_priorities:
+    for priority in priorities_to_test:
         priority_tuple = tuple(priority)
 
         # Compare policies
@@ -163,10 +180,9 @@ def main():
     print("  " + "-"*76)
 
     # Note: All lexmax runs produce the same Q-table (vectorial),
-    # so we just need to compare one of them with lexhull
-    reference_priority = (0, 1, 2)
+    # so we just need to compare the reference Q-table with lexhull
     q_result = compare_q_values(
-        lexmax_Q_tables[reference_priority],
+        lexmax_Q_reference,
         lexhull_Q,
         "All priorities"
     )
@@ -191,8 +207,8 @@ def main():
     print(f"  Q-values match: {'✓ YES' if all_q_match else '✗ NO'}")
 
     print(f"\nPerformance:")
-    print(f"  LG_VI_lexmax (6 runs):  {total_lexmax_time:.2f}s")
-    print(f"  LG_VI_lexhull (1 run):  {lexhull_time:.2f}s")
+    print(f"  LG_VI_lexmax ({len(priorities_to_test)} runs):  {total_lexmax_time:.2f}s")
+    print(f"  LG_VI_lexhull (1 run):   {lexhull_time:.2f}s")
 
     speedup = total_lexmax_time / lexhull_time
     print(f"\n  Speedup: {speedup:.2f}x")
@@ -212,7 +228,7 @@ def main():
     print(f"{'Priority':<20} {'Time (s)':<15} {'% of Total':<15}")
     print("-"*80)
 
-    for priority in all_priorities:
+    for priority in priorities_to_test:
         priority_tuple = tuple(priority)
         t = lexmax_times[priority_tuple]
         pct = (t / total_lexmax_time) * 100
@@ -233,5 +249,17 @@ def main():
 
 
 if __name__ == "__main__":
-    exit_code = main()
+    import sys
+
+    # Check for --quick flag
+    quick_test = "--quick" in sys.argv
+
+    if quick_test:
+        print("\n[Starting in QUICK TEST mode - only testing 2 priorities]")
+        print("[Use no arguments for full test of all 6 priorities]\n")
+    else:
+        print("\n[Starting in FULL TEST mode - testing all 6 priorities]")
+        print("[Use --quick flag for quick test with only 2 priorities]\n")
+
+    exit_code = main(quick_test=quick_test)
     exit(exit_code)
