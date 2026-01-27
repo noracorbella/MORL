@@ -11,8 +11,32 @@ If Q-values differ, we need to track all priorities separately during training.
 
 import numpy as np
 import time
+import gc
 from LG_VI_stoc_lexhull import LG_VI_lexhull
 from ADS_Environment import ADS_Environment
+
+
+def compare_all_policies(policies_1, policies_2, name1, name2):
+    """Compare all 6 policies between two experiments."""
+    priority_orderings = [(0,1,2), (0,2,1), (1,0,2), (1,2,0), (2,0,1), (2,1,0)]
+    all_match = True
+
+    for priority_ordering in priority_orderings:
+        pol_1 = policies_1[priority_ordering]
+        pol_2 = policies_2[priority_ordering]
+
+        match = np.array_equal(pol_1, pol_2)
+
+        if match:
+            print(f"    ✓ Priority {priority_ordering}: MATCH")
+        else:
+            diff_count = np.sum(pol_1 != pol_2)
+            total = pol_1.size
+            pct = (diff_count / total) * 100
+            print(f"    ✗ Priority {priority_ordering}: DIFFER ({diff_count}/{total} = {pct:.2f}%)")
+            all_match = False
+
+    return all_match
 
 
 def compare_q_tables(Q1, Q2, name1, name2, tolerance=1e-6):
@@ -68,7 +92,7 @@ def main():
     print("  reference priority is used during training.")
     print("\nTest:")
     print("  Run LG_VI_lexhull with 3 different reference priorities and compare")
-    print("  the resulting Q-tables.")
+    print("  the resulting Q-tables pairwise to avoid memory issues.")
 
     # Test with three different reference priorities
     test_priorities = [
@@ -79,121 +103,109 @@ def main():
 
     print(f"\nTesting with reference priorities: {test_priorities}")
 
-    Q_tables = {}
-    policies_dicts = {}
-    times = {}
-
     # Parameters
     theta = 1.0
     discount_factor = 0.7
 
     print("\n" + "=" * 80)
-    print("RUNNING EXPERIMENTS")
+    print("RUNNING EXPERIMENTS (with pairwise comparison)")
     print("=" * 80)
 
-    for priority in test_priorities:
-        priority_name = f"Priority {tuple(priority)}"
-        print(f"\n[Experiment] Running with reference priority {priority}")
-        print("-" * 80)
+    # Run first experiment and store results
+    print(f"\n[Experiment 1/3] Running with reference priority {test_priorities[0]}")
+    print("-" * 80)
 
-        # Create fresh environment
-        env = ADS_Environment()
+    env = ADS_Environment()
+    start_time = time.time()
+    policies_1, Q_1 = LG_VI_lexhull(
+        env,
+        theta=theta,
+        discount_factor=discount_factor,
+        priority=test_priorities[0]
+    )
+    time_1 = time.time() - start_time
 
-        # Run LG_VI_lexhull with this reference priority
-        start_time = time.time()
-        policies, Q = LG_VI_lexhull(
-            env,
-            theta=theta,
-            discount_factor=discount_factor,
-            priority=priority
-        )
-        elapsed = time.time() - start_time
+    print(f"\n✓ Completed in {time_1:.2f}s")
+    print(f"  Q-table shape: {Q_1.shape}")
+    print(f"  Number of policies extracted: {len(policies_1)}")
 
-        # Store results
-        Q_tables[priority_name] = Q
-        policies_dicts[priority_name] = policies
-        times[priority_name] = elapsed
+    # Clean up environment
+    del env
+    gc.collect()
 
-        print(f"\n✓ Completed in {elapsed:.2f}s")
-        print(f"  Q-table shape: {Q.shape}")
-        print(f"  Number of policies extracted: {len(policies)}")
+    # Run second experiment, compare, then keep only Q_2 for next comparison
+    print(f"\n[Experiment 2/3] Running with reference priority {test_priorities[1]}")
+    print("-" * 80)
 
-    # Compare Q-tables
+    env = ADS_Environment()
+    start_time = time.time()
+    policies_2, Q_2 = LG_VI_lexhull(
+        env,
+        theta=theta,
+        discount_factor=discount_factor,
+        priority=test_priorities[1]
+    )
+    time_2 = time.time() - start_time
+
+    print(f"\n✓ Completed in {time_2:.2f}s")
+    print(f"  Q-table shape: {Q_2.shape}")
+    print(f"  Number of policies extracted: {len(policies_2)}")
+
+    # Compare Q_1 vs Q_2
     print("\n" + "=" * 80)
-    print("COMPARING Q-TABLES")
+    print("COMPARING: Experiment 1 vs Experiment 2")
     print("=" * 80)
+    match_12 = compare_q_tables(Q_1, Q_2, "Priority (0,1,2)", "Priority (1,2,0)")
 
-    names = list(Q_tables.keys())
-    all_match = True
+    # Compare policies
+    print("\n  Comparing extracted policies:")
+    policies_match_12 = compare_all_policies(policies_1, policies_2, "Exp 1", "Exp 2")
 
-    # Compare Q1 vs Q2
-    match_12 = compare_q_tables(
-        Q_tables[names[0]],
-        Q_tables[names[1]],
-        names[0],
-        names[1]
+    # Clean up Q_1 and policies_1 - we don't need them anymore
+    del Q_1, policies_1, env
+    gc.collect()
+
+    # Run third experiment and compare with Q_2
+    print(f"\n[Experiment 3/3] Running with reference priority {test_priorities[2]}")
+    print("-" * 80)
+
+    env = ADS_Environment()
+    start_time = time.time()
+    policies_3, Q_3 = LG_VI_lexhull(
+        env,
+        theta=theta,
+        discount_factor=discount_factor,
+        priority=test_priorities[2]
     )
-    all_match = all_match and match_12
+    time_3 = time.time() - start_time
 
-    # Compare Q1 vs Q3
-    match_13 = compare_q_tables(
-        Q_tables[names[0]],
-        Q_tables[names[2]],
-        names[0],
-        names[2]
-    )
-    all_match = all_match and match_13
+    print(f"\n✓ Completed in {time_3:.2f}s")
+    print(f"  Q-table shape: {Q_3.shape}")
+    print(f"  Number of policies extracted: {len(policies_3)}")
 
-    # Compare Q2 vs Q3
-    match_23 = compare_q_tables(
-        Q_tables[names[1]],
-        Q_tables[names[2]],
-        names[1],
-        names[2]
-    )
-    all_match = all_match and match_23
-
-    # Compare policies (they should all be the same)
+    # Compare Q_2 vs Q_3
     print("\n" + "=" * 80)
-    print("COMPARING EXTRACTED POLICIES")
+    print("COMPARING: Experiment 2 vs Experiment 3")
     print("=" * 80)
+    match_23 = compare_q_tables(Q_2, Q_3, "Priority (1,2,0)", "Priority (2,1,0)")
 
-    print("\nNote: All experiments should extract the same 6 policies,")
-    print("even though they used different reference priorities during training.")
+    # Compare policies
+    print("\n  Comparing extracted policies:")
+    policies_match_23 = compare_all_policies(policies_2, policies_3, "Exp 2", "Exp 3")
 
-    # For each priority ordering, compare the extracted policies
-    priority_orderings = [(0,1,2), (0,2,1), (1,0,2), (1,2,0), (2,0,1), (2,1,0)]
-    policies_match = True
+    # Clean up
+    del Q_2, Q_3, policies_2, policies_3, env
+    gc.collect()
 
-    for priority_ordering in priority_orderings:
-        print(f"\n  Comparing policies for priority {priority_ordering}:")
+    # Overall results
+    all_match = match_12 and match_23
+    all_policies_match = policies_match_12 and policies_match_23
 
-        # Get policies from all three experiments
-        pol_1 = policies_dicts[names[0]][priority_ordering]
-        pol_2 = policies_dicts[names[1]][priority_ordering]
-        pol_3 = policies_dicts[names[2]][priority_ordering]
-
-        # Compare
-        match_12_pol = np.array_equal(pol_1, pol_2)
-        match_13_pol = np.array_equal(pol_1, pol_3)
-        match_23_pol = np.array_equal(pol_2, pol_3)
-
-        all_policies_match = match_12_pol and match_13_pol and match_23_pol
-
-        if all_policies_match:
-            print(f"    ✓ All policies MATCH")
-        else:
-            print(f"    ✗ Policies DIFFER")
-            if not match_12_pol:
-                diff_count = np.sum(pol_1 != pol_2)
-                print(f"      {names[0]} vs {names[1]}: {diff_count} states differ")
-            if not match_13_pol:
-                diff_count = np.sum(pol_1 != pol_3)
-                print(f"      {names[0]} vs {names[2]}: {diff_count} states differ")
-            if not match_23_pol:
-                diff_count = np.sum(pol_2 != pol_3)
-                print(f"      {names[1]} vs {names[2]}: {diff_count} states differ")
-            policies_match = False
+    times = {
+        "Priority (0,1,2)": time_1,
+        "Priority (1,2,0)": time_2,
+        "Priority (2,1,0)": time_3
+    }
 
     # Summary
     print("\n" + "=" * 80)
@@ -201,7 +213,7 @@ def main():
     print("=" * 80)
 
     print(f"\nQ-tables match: {'✓ YES' if all_match else '✗ NO'}")
-    print(f"Policies match: {'✓ YES' if policies_match else '✗ NO'}")
+    print(f"Policies match: {'✓ YES' if all_policies_match else '✗ NO'}")
 
     print("\nTiming:")
     for name, t in times.items():
@@ -211,7 +223,7 @@ def main():
     print("CONCLUSION")
     print("=" * 80)
 
-    if all_match and policies_match:
+    if all_match and all_policies_match:
         print("\n✓ HYPOTHESIS CONFIRMED!")
         print("\nQ-vectors are INDEPENDENT of reference priority.")
         print("The reference priority only affects the convergence path,")

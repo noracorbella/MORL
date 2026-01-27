@@ -42,9 +42,10 @@ def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7, priority=[0,1,2]):
     total_states = len(env.states_agent_left)*len(env.states_agent_right)**2
 
     print(f"Starting Lexicographic Hull Value Iteration")
-    print(f"Total states: {total_states}, Actions: {n_actions}")
+    print(f"Total states: {total_states}, Actions: {n_actions}, Objectives: {n_objectives}")
     print(f"Reference priority for convergence: {reference_priority}")
-    print(f"Will compute policies for all {len(list(generate_all_priority_orders(n_objectives)))} priority orders")
+    print(f"Computing policies for all {len(list(generate_all_priority_orders(n_objectives)))} lexicographic orders")
+    print(f"Total evaluations per iteration: {total_states * n_actions}")
 
     while True:
         iteration += 1
@@ -167,4 +168,5 @@ def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7, priority=[0,1,2]):
         policies[priority_tuple] = policy
         print(f"  Extracted policy for priority {priority_tuple}")
 
+    print(f"\nTotal policies extracted: {len(policies)}")
     return policies, Q
