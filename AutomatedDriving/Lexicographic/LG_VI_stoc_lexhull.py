@@ -2,7 +2,7 @@ import numpy as np
 from tqdm import tqdm
 from LG_utils import lex_hull, generate_all_priority_orders
 
-def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7, priority = [0,1,2]):
+def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7, priority=[0,1,2]):
     """
     Lexicographic Value Iteration Algorithm for all possible priority orders.
     
@@ -14,6 +14,8 @@ def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7, priority = [0,1,2]):
         env: the environment encoding the MOMDP
         theta: convergence parameter, the smaller it is the more precise the algorithm
         discount_factor: discount factor of the MOMDP, can be set at discretion
+        priority: reference priority order for convergence (default [0,1,2])
+
     
     Returns:
         policies: dict mapping priority orders (as tuples) to their optimal policies
@@ -21,7 +23,7 @@ def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7, priority = [0,1,2]):
     """
 
 
-    # Initialize value function and policy
+    # Initialise value function and policy
     n_cells = env.map_num_cells
     n_actions = env.n_actions
     n_objectives = 3
@@ -34,12 +36,14 @@ def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7, priority = [0,1,2]):
     pedestrian_stochastic_actions = env.agents[1].move_map[3][3]
     stochastic_state = [3, 3]
 
+    reference_priority = tuple(priority)
 
     iteration = 0
     total_states = len(env.states_agent_left)*len(env.states_agent_right)**2 #n_cells * n_cells * n_cells
 
     print(f"Starting Lexicographic Hull Value Iteration")
     print(f"Total states: {total_states}, Actions: {n_actions}, Objectives: {n_objectives}")
+    print(f"Reference priority for convergence: {reference_priority}")
     print(f"Computing policies for all {len(generate_all_priority_orders(n_objectives))} lexicographic orders")
     print(f"Total evaluations per iteration: {total_states * n_actions}")
 
@@ -142,15 +146,13 @@ def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7, priority = [0,1,2]):
                         
 
                         # Use car-priority [0,1,2] as reference for convergence checking
-                        reference_priority = (0, 1, 2)
                         best_action_reference = lex_optimal_actions[reference_priority]
                         v_new = q_vectors[best_action_reference]
 
+                        V[c, p1, p2] = v_new
+
                         # Update delta - maximum change in value function
                         delta = max(delta, np.max(np.abs(v_old - v_new)))
-
-                        V[c, p1, p2] = v_new
-                        Q[c, p1, p2] = q_vectors
 
                         pbar.update(1)
 

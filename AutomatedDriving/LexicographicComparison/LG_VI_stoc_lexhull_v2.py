@@ -1,27 +1,32 @@
+# DURING TRAINING ONLY CHECK CONVERGENCE WITH ONE PRIORITY ORDER
+# AFTER CONVERGENCE EXTRACT ALL 6 POLICIES
+
 import numpy as np
 from tqdm import tqdm
-from LG_utils import lex_max
+from LG_utils import lex_hull, lex_max, generate_all_priority_orders
 
-
-def LG_VI_lexmax(env, theta=1.0, discount_factor=0.7, priority = [0,1,2]):
+def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7, priority=[0,1,2]):
     """
-    Lexicographic Value Iteration Algorithm for a single priority order.
-
-    This is the standard lexicographic VI algorithm that computes the optimal policy
-    for one specific lexicographic ordering of objectives.
-
+    Lexicographic Value Iteration Algorithm for all possible priority orders.
+    
+    This algorithm computes optimal policies for all possible lexicographic orderings
+    of objectives simultaneously. Instead of training once per priority order, it
+    maintains Q-values as vectors and extracts all policies after convergence.
+    
     Args:
         env: the environment encoding the MOMDP
         theta: convergence parameter, the smaller it is the more precise the algorithm
         discount_factor: discount factor of the MOMDP, can be set at discretion
-        priority: lexicographic priority order (e.g., [0,1,2] for car first)
+        priority: reference priority order for convergence (default [0,1,2])
+
     
     Returns:
-        policy: optimal policy for the given priority order
-        
+        policies: dict mapping priority orders (as tuples) to their optimal policies
+        Q: Q-table with shape [n_cells, n_cells, n_cells, n_actions, n_objectives]
     """
 
-    # Initialize value function and policy
+
+    # Initialise value function and policy
     n_cells = env.map_num_cells
     n_actions = env.n_actions
     n_objectives = 3
@@ -29,22 +34,22 @@ def LG_VI_lexmax(env, theta=1.0, discount_factor=0.7, priority = [0,1,2]):
     V = np.zeros([n_cells, n_cells, n_cells, n_objectives])  # V table: each entry represents how good is it to be in this state
     model_next_state = {}  # dict to store multiple possible next states
 
-
-    policy = np.zeros([n_cells, n_cells, n_cells], dtype=int)  # For each state, which action should we take?
     Q = np.zeros([n_cells, n_cells, n_cells, n_actions, n_objectives])  # For each state-action pair, what's the expected total reward?
 
     pedestrian_stochastic_actions = env.agents[1].move_map[3][3]
     stochastic_state = [3, 3]
 
+    reference_priority = tuple(priority)
 
     iteration = 0
     total_states = len(env.states_agent_left)*len(env.states_agent_right)**2 #n_cells * n_cells * n_cells
 
-    print(f"Starting Lexicographic Max Value Iteration")
-    print(f"Total states: {total_states}, Actions: {n_actions}")
-    print(f"Priority order: {priority}")
+    print(f"Starting Lexicographic Hull Value Iteration")
+    print(f"Total states: {total_states}, Actions: {n_actions}, Objectives: {n_objectives}")
+    print(f"Reference priority for convergence: {reference_priority}")
+    print(f"Computing policies for all {len(generate_all_priority_orders(n_objectives))} lexicographic orders")
+    print(f"Total evaluations per iteration: {total_states * n_actions}")
 
-    
     while True:
         iteration += 1
         print(f"\n Iteration {iteration}")
@@ -136,11 +141,15 @@ def LG_VI_lexmax(env, theta=1.0, discount_factor=0.7, priority = [0,1,2]):
                         # Store Q-values for this state
                         Q[c, p1, p2] = q_vectors
 
-                        best_action = lex_max(q_vectors, priority=priority)
-                        V[c, p1, p2] = q_vectors[best_action]
+                        # For convergence checking, use only the reference priority
+                        # (no need to compute all 6 orderings during training!)
+                        best_action_reference = lex_max(q_vectors, priority=list(reference_priority))
+                        v_new = q_vectors[best_action_reference]
+
+                        V[c, p1, p2] = v_new
 
                         # Update delta - maximum change in value function
-                        delta = max(delta, np.max(np.abs(v_old - V[c, p1, p2])))
+                        delta = max(delta, np.max(np.abs(v_old - v_new)))
 
                         pbar.update(1)
 
@@ -153,11 +162,23 @@ def LG_VI_lexmax(env, theta=1.0, discount_factor=0.7, priority = [0,1,2]):
             print(f"Converged in {iteration} iterations")
             break
 
-    # Extract policy: for each state, choose action with best Q-value
-    print("\nExtracting policy...")
-    for c in range(n_cells):
-        for p1 in range(n_cells):
-            for p2 in range(n_cells):
-                policy[c, p1, p2] = lex_max(Q[c, p1, p2], priority=priority)  # ← Ha de ser lex_max!
+    print("\nExtracting policies for all lexicographic orders...")
+    
+    all_priority_orders = generate_all_priority_orders(n_objectives)
+    policies = {}
+    for priority_order in all_priority_orders:
+        priority_tuple = tuple(priority_order)
+        policy = np.zeros([n_cells, n_cells, n_cells], dtype=int)
+        
+        for c in range(n_cells):
+            for p1 in range(n_cells):
+                for p2 in range(n_cells):
+                    lex_optimal_actions = lex_hull(Q[c, p1, p2], n_objectives=n_objectives)
+                    policy[c, p1, p2] = lex_optimal_actions[priority_tuple]
+        
+        policies[priority_tuple] = policy
+        print(f"  Extracted policy for priority order {priority_order}")
 
-    return policy, Q
+    print(f"\nTotal policies extracted: {len(policies)}")
+    
+    return policies, Q

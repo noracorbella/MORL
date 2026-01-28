@@ -1,6 +1,6 @@
 import numpy as np
-from LG_VI_stoc_lexhull import LG_VI_lexhull
-from LG_VI_stoc_lexmax import LG_VI  # for comparison
+from LG_VI_stoc_lexhull_v2 import LG_VI_lexhull
+from LG_VI_stoc_lexmax import LG_VI_lexmax  # for comparison
 from ADS_Environment import Environment
 
 def main():
@@ -11,7 +11,7 @@ def main():
     print("#" * 80)
     
     # Run lex_hull VI - trains ONCE and extracts ALL policies
-    policies_all, Q = LG_VI_lexhull(
+    policies_all, Q_hulls = LG_VI_lexhull(
         env=env,
         theta=1.0,
         discount_factor=0.7
@@ -53,7 +53,14 @@ def main():
     print(f"\nExample state {example_state}:")
     print(f"  Car-priority action: {car_policy[tuple(example_state)]}")
     print(f"  Ped1-priority action: {ped1_policy[tuple(example_state)]}")
-    print(f"  Q-values: {Q[tuple(example_state)]}")
+    # Display Q-hulls for each action at this state
+    print(f"\n  Q-hulls at state {example_state}:")
+    state_tuple = tuple(example_state)
+    for action in range(env.n_actions):
+        if state_tuple + (action,) in Q_hulls:
+            hull = Q_hulls[state_tuple + (action,)]
+            print(f"    Action {action}: hull size = {hull.shape[0]}")
+            print(f"      Vectors: {hull}")
     
     # Save policies
     print("\n" + "-" * 80)
@@ -66,10 +73,12 @@ def main():
         print(f"  Saved: {filename}")
     
     # Save Q-table
-    np.save("Q_lexhull.npy", Q)
-    print(f"  Saved: Q_lexhull.npy")  
+    import pickle
+    with open("Q_lexhull.pkl", "wb") as f:
+        pickle.dump(Q_hulls, f)
+    print(f"  Saved: Q_lexhull.pkl")  
     
-    return policies_all, Q
+    return policies_all, Q_hulls
 
 
 def analyse_policy_differences(policies_all):
@@ -136,7 +145,7 @@ def analyse_policy_differences(policies_all):
 
 
 if __name__ == "__main__":
-    policies, Q = main()
+    policies, Q_hulls = main()
     analyse_policy_differences(policies)
     
     print("\n" + "=" * 80)

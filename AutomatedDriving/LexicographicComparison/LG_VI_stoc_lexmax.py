@@ -3,7 +3,7 @@ from tqdm import tqdm
 from LG_utils import lex_max
 
 
-def LG_VI_lexmax(env, theta=1.0, discount_factor=0.7, priority = [0,1,2]):
+def LG_VI_lexmax(env, theta=1.0, discount_factor=0.7, priority = [0,1,2], return_Q=False):
     """
     Lexicographic Value Iteration Algorithm for a single priority order.
 
@@ -15,9 +15,11 @@ def LG_VI_lexmax(env, theta=1.0, discount_factor=0.7, priority = [0,1,2]):
         theta: convergence parameter, the smaller it is the more precise the algorithm
         discount_factor: discount factor of the MOMDP, can be set at discretion
         priority: lexicographic priority order (e.g., [0,1,2] for car first)
+        return_Q: if False, don't return Q-table to save memory
     
     Returns:
         policy: optimal policy for the given priority order
+        Q: Q-table (only if return_Q=True, otherwise None)
         
     """
 
@@ -160,4 +162,7 @@ def LG_VI_lexmax(env, theta=1.0, discount_factor=0.7, priority = [0,1,2]):
             for p2 in range(n_cells):
                 policy[c, p1, p2] = lex_max(Q[c, p1, p2], priority=priority)  # ← Ha de ser lex_max!
 
-    return policy, Q
+    if return_Q:
+        return policy, Q
+    else:
+        return policy, None
