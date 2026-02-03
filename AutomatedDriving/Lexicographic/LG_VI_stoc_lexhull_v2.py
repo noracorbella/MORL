@@ -41,16 +41,19 @@ def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7):
         delta = 0
 
         with tqdm(total=total_states, desc=f"Iteration {iteration}") as pbar:
+            hull_sizes = []
             for c in env.states_agent_left:
                 for p1 in env.states_agent_right:
                     for p2 in env.states_agent_right:
+
+                        hull_sizes.append(V[(c, p1, p2)].shape[0])
+
                         state = np.array([c, p1, p2])
                         state_translated = env.translate_state(state)
                         state_tuple = (c, p1, p2)
 
                         old_hull = V[state_tuple].copy()
 
-                        # Check stochasticity
                         p1_is_stochastic = np.array_equal(state_translated[1], stochastic_state)
                         p2_is_stochastic = np.array_equal(state_translated[2], stochastic_state)
 
@@ -92,7 +95,7 @@ def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7):
                             else:
                                 outcomes = model_next_state[state_tuple + (action,)]
 
-                            # Compute Q-vectors for this action across all stochastic outcomes
+                            # Compute Q-vectors for this action 
                             q_vectors_for_action = []
                             
                             for next_state, reward_vect, done, prob in outcomes:
@@ -100,7 +103,7 @@ def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7):
                                     # Terminal state: Q = reward
                                     q_vectors_for_action.append(reward_vect)
                                 else:
-                                    # Non-terminal: Q = reward + γ * V_hull
+                                    # Non-terminal: Q = reward + gamma * V_hull
                                     next_hull = V[(next_state[0], next_state[1], next_state[2])]
                                     
                                     # For each vector in the next state's hull, compute Q
@@ -135,6 +138,12 @@ def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7):
                         delta = max(delta, max_diff)
 
                         pbar.update(1)
+            
+            print(f"\nHull size statistics:")
+            print(f"  Min hull size: {np.min(hull_sizes)}")
+            print(f"  Max hull size: {np.max(hull_sizes)}")
+            print(f"  Mean hull size: {np.mean(hull_sizes):.2f}")
+            print(f"  States with hull size 1: {np.sum(np.array(hull_sizes) == 1)}/{len(hull_sizes)}")
 
         print(f"Delta = {round(delta, 3)}, Theta = {theta}")
 
@@ -156,9 +165,9 @@ def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7):
         priority_tuple = tuple(priority_order)
         policy = np.zeros([n_cells, n_cells, n_cells], dtype=int)
         
-        for c in range(n_cells):
-            for p1 in range(n_cells):
-                for p2 in range(n_cells):
+        for c in env.states_agent_left:
+            for p1 in env.states_agent_right:
+                for p2 in env.states_agent_right:
                     state_tuple = (c, p1, p2)
                     
                     # For each action, get its representative Q-vector

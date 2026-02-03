@@ -42,7 +42,7 @@ def lex_max(q_vectors, priority=[0,1,2], tol=1e-9):
 
         new_best_actions = []
         for i, action in enumerate(best_actions):
-            if abs(obj_values[i] - max_val) < 1e-9:
+            if abs(obj_values[i] - max_val) < tol:
                 new_best_actions.append(action)
         
         best_actions = new_best_actions
