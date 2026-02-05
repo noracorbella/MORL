@@ -42,7 +42,7 @@ def lex_max(q_vectors, priority=[0,1,2], tol=1e-9):
 
         new_best_actions = []
         for i, action in enumerate(best_actions):
-            if abs(obj_values[i] - max_val) < tol:
+            if abs(obj_values[i] - max_val) < 1e-9:
                 new_best_actions.append(action)
         
         best_actions = new_best_actions
@@ -54,21 +54,13 @@ def lex_max(q_vectors, priority=[0,1,2], tol=1e-9):
     return best_actions[0]
 
 
-# def generate_all_priority_orders(n_objectives):
-
-#     all_permutations = list(permutations(range(n_objectives)))
-
-#     priority_orders = [list(perm) for perm in all_permutations]
-
-#     return priority_orders
-_PRIORITY_ORDERS_CACHE = {}
-
 def generate_all_priority_orders(n_objectives):
-    """Generate all permutations - cached version"""
-    if n_objectives not in _PRIORITY_ORDERS_CACHE:
-        from itertools import permutations
-        _PRIORITY_ORDERS_CACHE[n_objectives] = list(permutations(range(n_objectives)))
-    return _PRIORITY_ORDERS_CACHE[n_objectives]
+
+    all_permutations = list(permutations(range(n_objectives)))
+
+    priority_orders = [list(perm) for perm in all_permutations]
+
+    return priority_orders
 
 
 
@@ -96,3 +88,30 @@ def lex_hull(q_vectors, n_objectives=3, tol=1e-9):
         lex_optimal_actions[order_tuple] = best_action
     
     return lex_optimal_actions
+
+def lex_hull_corrected(q_vectors, n_objectives=3, tol=1e-9):
+    """
+    Calculate lexicographic hull: keep only q-vectors that are lexicographically 
+    optimal for at least one priority order.
+    
+    Args:
+        q_vectors: array of shape (n_actions, n_objectives)
+        n_objectives: number of objectives (default 3)
+        tol: tolerance for floating point comparisons
+    
+    Returns:
+        Dictionary mapping priority orders (as tuples) to their optimal action indices
+        Set of action indices that are optimal for at least one priority order
+    """
+    priority_orders = generate_all_priority_orders(n_objectives)
+    
+    lex_optimal_actions = {}
+    optimal_action_set = set()  # Track which actions are optimal for ANY order
+    
+    for order in priority_orders:
+        best_action = lex_max(q_vectors, priority=order, tol=tol)
+        order_tuple = tuple(order)
+        lex_optimal_actions[order_tuple] = best_action
+        optimal_action_set.add(best_action)
+    
+    return lex_optimal_actions, optimal_action_set  

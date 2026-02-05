@@ -17,50 +17,50 @@ def main():
         discount_factor=0.7
     )
     
-    print("\n" + "#" * 80)
-    print("RESULTS")
-    print("#" * 80)
+    # print("\n" + "#" * 80)
+    # print("RESULTS")
+    # print("#" * 80)
     
-    # Access specific policies
-    car_priority = (0, 1, 2)      # Car first, then ped1, then ped2
-    ped1_priority = (1, 0, 2)     # Ped1 first, then car, then ped2
-    ped2_priority = (2, 0, 1)     # Ped2 first, then car, then ped1
+    # # Access specific policies
+    # car_priority = (0, 1, 2)      # Car first, then ped1, then ped2
+    # ped1_priority = (1, 0, 2)     # Ped1 first, then car, then ped2
+    # ped2_priority = (2, 0, 1)     # Ped2 first, then car, then ped1
     
-    print(f"\nAvailable priority orders: {len(policies_all)}")
-    print("\nSample policies extracted:")
-    print(f"  Car-priority {car_priority}: shape {policies_all[car_priority].shape}")
-    print(f"  Ped1-priority {ped1_priority}: shape {policies_all[ped1_priority].shape}")
-    print(f"  Ped2-priority {ped2_priority}: shape {policies_all[ped2_priority].shape}")
+    # print(f"\nAvailable priority orders: {len(policies_all)}")
+    # print("\nSample policies extracted:")
+    # print(f"  Car-priority {car_priority}: shape {policies_all[car_priority].shape}")
+    # print(f"  Ped1-priority {ped1_priority}: shape {policies_all[ped1_priority].shape}")
+    # print(f"  Ped2-priority {ped2_priority}: shape {policies_all[ped2_priority].shape}")
     
-    # Compare policies
-    print("\n" + "-" * 80)
-    print("POLICY COMPARISON")
-    print("-" * 80)
+    # # Compare policies
+    # print("\n" + "-" * 80)
+    # print("POLICY COMPARISON")
+    # print("-" * 80)
     
-    # Check how many states have different actions between two priority orders
-    car_policy = policies_all[car_priority]
-    ped1_policy = policies_all[ped1_priority]
+    # # Check how many states have different actions between two priority orders
+    # car_policy = policies_all[car_priority]
+    # ped1_policy = policies_all[ped1_priority]
     
-    different_states = np.sum(car_policy != ped1_policy)
-    total_states = car_policy.size
+    # different_states = np.sum(car_policy != ped1_policy)
+    # total_states = car_policy.size
     
-    print(f"\nCar-priority vs Ped1-priority:")
-    print(f"  States with different actions: {different_states}/{total_states}")
-    print(f"  Percentage different: {100 * different_states / total_states:.2f}%")
+    # print(f"\nCar-priority vs Ped1-priority:")
+    # print(f"  States with different actions: {different_states}/{total_states}")
+    # print(f"  Percentage different: {100 * different_states / total_states:.2f}%")
     
-    # Example: check action at a specific state
-    example_state = [2, 3, 3]  # car at 2, both peds at crosswalk
-    print(f"\nExample state {example_state}:")
-    print(f"  Car-priority action: {car_policy[tuple(example_state)]}")
-    print(f"  Ped1-priority action: {ped1_policy[tuple(example_state)]}")
-    # Display Q-hulls for each action at this state
-    print(f"\n  Q-hulls at state {example_state}:")
-    state_tuple = tuple(example_state)
-    for action in range(env.n_actions):
-        if state_tuple + (action,) in Q_hulls:
-            hull = Q_hulls[state_tuple + (action,)]
-            print(f"    Action {action}: hull size = {hull.shape[0]}")
-            print(f"      Vectors: {hull}")
+    # # Example: check action at a specific state
+    # example_state = [2, 3, 3]  # car at 2, both peds at crosswalk
+    # print(f"\nExample state {example_state}:")
+    # print(f"  Car-priority action: {car_policy[tuple(example_state)]}")
+    # print(f"  Ped1-priority action: {ped1_policy[tuple(example_state)]}")
+    # # Display Q-hulls for each action at this state
+    # print(f"\n  Q-hulls at state {example_state}:")
+    # state_tuple = tuple(example_state)
+    # for action in range(env.n_actions):
+    #     if state_tuple + (action,) in Q_hulls:
+    #         hull = Q_hulls[state_tuple + (action,)]
+    #         print(f"    Action {action}: hull size = {hull.shape[0]}")
+    #         print(f"      Vectors: {hull}")
     
     # Save policies
     print("\n" + "-" * 80)
@@ -68,7 +68,7 @@ def main():
     print("-" * 80)
     
     for priority_order, policy in policies_all.items():
-        filename = f"policy_lex_{'_'.join(map(str, priority_order))}.npy"
+        filename = f"policies/policy_lexhull_{'_'.join(map(str, priority_order))}.npy"
         np.save(filename, policy)
         print(f"  Saved: {filename}")
     
@@ -81,73 +81,73 @@ def main():
     return policies_all, Q_hulls
 
 
-def analyse_policy_differences(policies_all):
-    """
-    Analyze how different lexicographic orders lead to different policies.
-    """
-    print("\n" + "=" * 80)
-    print("POLICY DIFFERENCE ANALYSIS")
-    print("=" * 80)
+# def analyse_policy_differences(policies_all):
+#     """
+#     Analyze how different lexicographic orders lead to different policies.
+#     """
+#     print("\n" + "=" * 80)
+#     print("POLICY DIFFERENCE ANALYSIS")
+#     print("=" * 80)
     
-    priority_orders = list(policies_all.keys())
-    n_orders = len(priority_orders)
+#     priority_orders = list(policies_all.keys())
+#     n_orders = len(priority_orders)
     
-    # Create matrix of policy differences - use float to allow np.inf
-    diff_matrix = np.zeros((n_orders, n_orders), dtype=float)
+#     # Create matrix of policy differences - use float to allow np.inf
+#     diff_matrix = np.zeros((n_orders, n_orders), dtype=float)
     
-    for i, order1 in enumerate(priority_orders):
-        for j, order2 in enumerate(priority_orders):
-            if i < j:
-                diff = np.sum(policies_all[order1] != policies_all[order2])
-                diff_matrix[i, j] = diff
-                diff_matrix[j, i] = diff
+#     for i, order1 in enumerate(priority_orders):
+#         for j, order2 in enumerate(priority_orders):
+#             if i < j:
+#                 diff = np.sum(policies_all[order1] != policies_all[order2])
+#                 diff_matrix[i, j] = diff
+#                 diff_matrix[j, i] = diff
     
-    # Find most different pairs
-    max_diff = np.max(diff_matrix)
-    max_idx = np.unravel_index(np.argmax(diff_matrix), diff_matrix.shape)
+#     # Find most different pairs
+#     max_diff = np.max(diff_matrix)
+#     max_idx = np.unravel_index(np.argmax(diff_matrix), diff_matrix.shape)
     
-    print(f"\nMost different policy pair:")
-    print(f"  {priority_orders[max_idx[0]]} vs {priority_orders[max_idx[1]]}")
-    print(f"  Different states: {int(max_diff)}")
+#     print(f"\nMost different policy pair:")
+#     print(f"  {priority_orders[max_idx[0]]} vs {priority_orders[max_idx[1]]}")
+#     print(f"  Different states: {int(max_diff)}")
     
-    # Find most similar pairs (excluding identical)
-    diff_matrix_masked = diff_matrix.copy()
-    np.fill_diagonal(diff_matrix_masked, np.inf)
-    min_diff = np.min(diff_matrix_masked)
-    min_idx = np.unravel_index(np.argmin(diff_matrix_masked), diff_matrix_masked.shape)
+#     # Find most similar pairs (excluding identical)
+#     diff_matrix_masked = diff_matrix.copy()
+#     np.fill_diagonal(diff_matrix_masked, np.inf)
+#     min_diff = np.min(diff_matrix_masked)
+#     min_idx = np.unravel_index(np.argmin(diff_matrix_masked), diff_matrix_masked.shape)
     
-    print(f"\nMost similar policy pair:")
-    print(f"  {priority_orders[min_idx[0]]} vs {priority_orders[min_idx[1]]}")
-    print(f"  Different states: {int(min_diff)}")
+#     print(f"\nMost similar policy pair:")
+#     print(f"  {priority_orders[min_idx[0]]} vs {priority_orders[min_idx[1]]}")
+#     print(f"  Different states: {int(min_diff)}")
     
-    # Print full difference matrix
-    print(f"\n" + "-" * 80)
-    print("Full pairwise difference matrix:")
-    print(f"(Number of states with different actions)")
-    print(f"\nPriority orders:")
-    for i, order in enumerate(priority_orders):
-        print(f"  {i}: {order}")
+#     # Print full difference matrix
+#     print(f"\n" + "-" * 80)
+#     print("Full pairwise difference matrix:")
+#     print(f"(Number of states with different actions)")
+#     print(f"\nPriority orders:")
+#     for i, order in enumerate(priority_orders):
+#         print(f"  {i}: {order}")
     
-    print(f"\nDifference matrix:")
-    # Create nice formatted output
-    header = "     " + "".join([f"{i:7}" for i in range(n_orders)])
-    print(header)
-    for i in range(n_orders):
-        row = f"{i}:  "
-        for j in range(n_orders):
-            if i == j:
-                row += "   -   "
-            else:
-                row += f"{int(diff_matrix[i, j]):6} "
-        print(row)
+#     print(f"\nDifference matrix:")
+#     # Create nice formatted output
+#     header = "     " + "".join([f"{i:7}" for i in range(n_orders)])
+#     print(header)
+#     for i in range(n_orders):
+#         row = f"{i}:  "
+#         for j in range(n_orders):
+#             if i == j:
+#                 row += "   -   "
+#             else:
+#                 row += f"{int(diff_matrix[i, j]):6} "
+#         print(row)
     
-    return diff_matrix
+#     return diff_matrix
 
 
 if __name__ == "__main__":
     policies, Q_hulls = main()
-    analyse_policy_differences(policies)
+    # analyse_policy_differences(policies)
     
-    print("\n" + "=" * 80)
-    print("ANALYSIS COMPLETE")
-    print("=" * 80)
+    # print("\n" + "=" * 80)
+    # print("ANALYSIS COMPLETE")
+    # print("=" * 80)

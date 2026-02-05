@@ -1,184 +1,182 @@
-# DURING TRAINING ONLY CHECK CONVERGENCE WITH ONE PRIORITY ORDER
-# AFTER CONVERGENCE EXTRACT ALL 6 POLICIES
-
 import numpy as np
 from tqdm import tqdm
-from LG_utils import lex_hull, lex_max, generate_all_priority_orders
+from LG_utils import lex_hull_corrected, generate_all_priority_orders, lex_max
 
-def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7, priority=[0,1,2]):
+def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7):
     """
-    Lexicographic Value Iteration Algorithm for all possible priority orders.
+    Lexicographic Value Iteration Algorithm using hull-based convergence.
     
-    This algorithm computes optimal policies for all possible lexicographic orderings
-    of objectives simultaneously. Instead of training once per priority order, it
-    maintains Q-values as vectors and extracts all policies after convergence.
-    
-    Args:
-        env: the environment encoding the MOMDP
-        theta: convergence parameter, the smaller it is the more precise the algorithm
-        discount_factor: discount factor of the MOMDP, can be set at discretion
-        priority: reference priority order for convergence (default [0,1,2])
-
-    
-    Returns:
-        policies: dict mapping priority orders (as tuples) to their optimal policies
-        Q: Q-table with shape [n_cells, n_cells, n_cells, n_actions, n_objectives]
+    Maintains the lexicographic hull using proper convex hull operations
+    in the Bellman update.
     """
-
-
-    # Initialise value function and policy
+    
     n_cells = env.map_num_cells
     n_actions = env.n_actions
     n_objectives = 3
 
-    V = np.zeros([n_cells, n_cells, n_cells, n_objectives])  # V table: each entry represents how good is it to be in this state
-    model_next_state = {}  # dict to store multiple possible next states
+    MAX_ITER = 10
 
-    Q = np.zeros([n_cells, n_cells, n_cells, n_actions, n_objectives])  # For each state-action pair, what's the expected total reward?
+    # V stores hulls (sets of vectors) for each state
+    V = {}
+    for c in range(n_cells):
+        for p1 in range(n_cells):
+            for p2 in range(n_cells):
+                V[(c, p1, p2)] = np.zeros((1, n_objectives))
+
+    model_next_state = {}
+    Q_hulls = {}  # Store hull for each state-action pair
 
     pedestrian_stochastic_actions = env.agents[1].move_map[3][3]
     stochastic_state = [3, 3]
 
-    reference_priority = tuple(priority)
-
     iteration = 0
-    total_states = len(env.states_agent_left)*len(env.states_agent_right)**2 #n_cells * n_cells * n_cells
+    total_states = len(env.states_agent_left)*len(env.states_agent_right)**2
 
-    print(f"Starting Lexicographic Hull Value Iteration")
+    print(f"Starting Lexicographic Hull Value Iteration (Convex hull operations)")
     print(f"Total states: {total_states}, Actions: {n_actions}, Objectives: {n_objectives}")
-    print(f"Reference priority for convergence: {reference_priority}")
-    print(f"Computing policies for all {len(generate_all_priority_orders(n_objectives))} lexicographic orders")
-    print(f"Total evaluations per iteration: {total_states * n_actions}")
 
     while True:
         iteration += 1
-        print(f"\n Iteration {iteration}")
-
+        print(f"\nIteration {iteration}")
         delta = 0
 
         with tqdm(total=total_states, desc=f"Iteration {iteration}") as pbar:
-            # Iterate through every possible state
             for c in env.states_agent_left:
                 for p1 in env.states_agent_right:
                     for p2 in env.states_agent_right:
                         state = np.array([c, p1, p2])
                         state_translated = env.translate_state(state)
+                        state_tuple = (c, p1, p2)
 
-                        v_old = V[c, p1, p2].copy()
+                        old_hull = V[state_tuple].copy()
 
-                        q_vectors = np.zeros((n_actions, n_objectives))
-
-
-                        # Check if either pedestrian is in stochastic state
+                        # Check stochasticity
                         p1_is_stochastic = np.array_equal(state_translated[1], stochastic_state)
                         p2_is_stochastic = np.array_equal(state_translated[2], stochastic_state)
 
-                        # For this state, try every action
+                        # For each action, compute the Q-hull
+                        action_hulls = []
+                        
                         for action in range(n_actions):
-
-                            # Take action and observe next state and reward
                             if iteration == 1:
-                                outcomes = [] # (next_state, reward, done, probability)
-
+                                outcomes = []
                                 if not p1_is_stochastic and not p2_is_stochastic:
-                                    # Deterministic case
                                     env.reset(state_translated[0], state_translated[1], state_translated[2])
                                     next_state, reward_vect, done_array = env.step([action])
-                                    done = done_array[0]  
-                                    prob = 1.0
-                                    outcomes.append((next_state, reward_vect, done, prob))
-
+                                    done = done_array[0]
+                                    outcomes.append((next_state, reward_vect, done, 1.0))
                                 elif p1_is_stochastic and not p2_is_stochastic:
                                     for p1_action in pedestrian_stochastic_actions:
-
                                         env.reset(state_translated[0], state_translated[1], state_translated[2])
                                         next_state, reward_vect, done_array = env.step([action, p1_action, 8000])
                                         done = done_array[0]
                                         prob = 1.0 / len(pedestrian_stochastic_actions)
                                         outcomes.append((next_state, reward_vect, done, prob))
-
                                 elif not p1_is_stochastic and p2_is_stochastic:
                                     for p2_action in pedestrian_stochastic_actions:
                                         env.reset(state_translated[0], state_translated[1], state_translated[2])
                                         next_state, reward_vect, done_array = env.step([action, 8000, p2_action])
                                         done = done_array[0]
                                         prob = 1.0 / len(pedestrian_stochastic_actions)
-
                                         outcomes.append((next_state, reward_vect, done, prob))
                                 else:
-                                    # Both pedestrians are stochastic
                                     for p1_action in pedestrian_stochastic_actions:
                                         for p2_action in pedestrian_stochastic_actions:
                                             env.reset(state_translated[0], state_translated[1], state_translated[2])
                                             next_state, reward_vect, done_array = env.step([action, p1_action, p2_action])
                                             done = done_array[0]
-                                            prob = 1.0 / (len(pedestrian_stochastic_actions) ** 2) # 0.25
+                                            prob = 1.0 / (len(pedestrian_stochastic_actions) ** 2)
                                             outcomes.append((next_state, reward_vect, done, prob))
                                 
-                                model_next_state[(c, p1, p2, action)] = outcomes
-                                
+                                model_next_state[state_tuple + (action,)] = outcomes
                             else:
-                                outcomes = model_next_state[(c, p1, p2, action)]
+                                outcomes = model_next_state[state_tuple + (action,)]
 
-
-                            q_vector = np.zeros(n_objectives)
-
+                            # Compute Q-vectors for this action across all stochastic outcomes
+                            q_vectors_for_action = []
+                            
                             for next_state, reward_vect, done, prob in outcomes:
-
                                 if done:
-                                    q_vector += prob * reward_vect
+                                    # Terminal state: Q = reward
+                                    q_vectors_for_action.append(reward_vect)
                                 else:
-                                    next_value = V[next_state[0], next_state[1], next_state[2]]
-                                    q_vector += prob * (reward_vect + discount_factor * next_value)
-                                
+                                    # Non-terminal: Q = reward + γ * V_hull
+                                    next_hull = V[(next_state[0], next_state[1], next_state[2])]
+                                    
+                                    # For each vector in the next state's hull, compute Q
+                                    for v_vector in next_hull:
+                                        q_vec = reward_vect + discount_factor * v_vector
+                                        q_vectors_for_action.append(q_vec)
                             
-                
-                            
-                            q_vectors[action] = q_vector
+                            # Convert to array and store
+                            action_hull = np.array(q_vectors_for_action)
+                            action_hulls.append(action_hull)
+                            Q_hulls[state_tuple + (action,)] = action_hull
 
-                            
+                        # Now compute the lexicographic hull across ALL actions
+                        # Concatenate all action hulls
+                        all_q_vectors = np.vstack(action_hulls)
+                        
+                        # Apply lexicographic hull to get only non-dominated vectors
+                        _, optimal_actions_in_combined = lex_hull_corrected(all_q_vectors, n_objectives=n_objectives)
+                        new_hull = all_q_vectors[list(optimal_actions_in_combined)]
 
-                        # Store Q-values for this state
-                        Q[c, p1, p2] = q_vectors
+                        # Sort hull for consistent comparison
+                        new_hull = new_hull[np.lexsort(new_hull.T[::-1])]
+                        
+                        V[state_tuple] = new_hull
 
-                        # For convergence checking, use only the reference priority
-                        # (no need to compute all 6 orderings during training!)
-                        best_action_reference = lex_max(q_vectors, priority=list(reference_priority))
-                        v_new = q_vectors[best_action_reference]
-
-                        V[c, p1, p2] = v_new
-
-                        # Update delta - maximum change in value function
-                        delta = max(delta, np.max(np.abs(v_old - v_new)))
+                        # Convergence check
+                        if old_hull.shape == new_hull.shape:
+                            max_diff = np.max(np.abs(new_hull - old_hull))
+                        else:
+                            max_diff = float('inf')
+                        
+                        delta = max(delta, max_diff)
 
                         pbar.update(1)
 
         print(f"Delta = {round(delta, 3)}, Theta = {theta}")
 
-        # Check convergence
         if delta < theta:
-            print(f"\nDelta = {round(delta, 3)} < Theta = {theta}")
-            print("Learning Process finished!")
-            print(f"Converged in {iteration} iterations")
+            print(f"\nConverged in {iteration} iterations")
+            break
+        elif iteration >= MAX_ITER:
+            print(f"\nReached maximum iterations ({MAX_ITER})")
+            print(f"Final delta = {round(delta, 3)}")
             break
 
+
+    # Extract policies
     print("\nExtracting policies for all lexicographic orders...")
-    
     all_priority_orders = generate_all_priority_orders(n_objectives)
     policies = {}
+    
     for priority_order in all_priority_orders:
         priority_tuple = tuple(priority_order)
         policy = np.zeros([n_cells, n_cells, n_cells], dtype=int)
         
-        for c in range(n_cells):
-            for p1 in range(n_cells):
-                for p2 in range(n_cells):
-                    lex_optimal_actions = lex_hull(Q[c, p1, p2], n_objectives=n_objectives)
-                    policy[c, p1, p2] = lex_optimal_actions[priority_tuple]
+        for c in env.states_agent_left:
+            for p1 in env.states_agent_right:
+                for p2 in env.states_agent_right:
+                    state_tuple = (c, p1, p2)
+                    
+                    # For each action, get its representative Q-vector
+                    # (We need to pick ONE vector from each action's hull)
+                    q_vectors = []
+                    for action in range(n_actions):
+                        action_hull = Q_hulls[state_tuple + (action,)]
+                        # Use lexicographic max for THIS priority to select representative
+                        best_idx = lex_max(action_hull, priority=list(priority_order))
+                        q_vectors.append(action_hull[best_idx])
+                    
+                    q_vectors = np.array(q_vectors)
+                    
+                    # Now find best action for this priority
+                    best_action = lex_max(q_vectors, priority=list(priority_order))
+                    policy[c, p1, p2] = best_action
         
         policies[priority_tuple] = policy
         print(f"  Extracted policy for priority order {priority_order}")
 
-    print(f"\nTotal policies extracted: {len(policies)}")
-    
-    return policies, Q
+    return policies, Q_hulls

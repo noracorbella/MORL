@@ -3,7 +3,7 @@ from tqdm import tqdm
 from LG_utils import lex_max
 
 
-def LG_VI_lexmax(env, theta=1.0, discount_factor=0.7, priority = [0,1,2], return_Q=False):
+def LG_VI_lexmax(env, theta=1.0, discount_factor=0.7, priority = [0,1,2]):
     """
     Lexicographic Value Iteration Algorithm for a single priority order.
 
@@ -15,11 +15,9 @@ def LG_VI_lexmax(env, theta=1.0, discount_factor=0.7, priority = [0,1,2], return
         theta: convergence parameter, the smaller it is the more precise the algorithm
         discount_factor: discount factor of the MOMDP, can be set at discretion
         priority: lexicographic priority order (e.g., [0,1,2] for car first)
-        return_Q: if False, don't return Q-table to save memory
     
     Returns:
         policy: optimal policy for the given priority order
-        Q: Q-table (only if return_Q=True, otherwise None)
         
     """
 
@@ -133,8 +131,6 @@ def LG_VI_lexmax(env, theta=1.0, discount_factor=0.7, priority = [0,1,2], return
                             
                             q_vectors[action] = q_vector
 
-                            
-
                         # Store Q-values for this state
                         Q[c, p1, p2] = q_vectors
 
@@ -157,12 +153,9 @@ def LG_VI_lexmax(env, theta=1.0, discount_factor=0.7, priority = [0,1,2], return
 
     # Extract policy: for each state, choose action with best Q-value
     print("\nExtracting policy...")
-    for c in range(n_cells):
-        for p1 in range(n_cells):
-            for p2 in range(n_cells):
+    for c in env.states_agent_left:
+        for p1 in env.states_agent_right:
+            for p2 in env.states_agent_right:
                 policy[c, p1, p2] = lex_max(Q[c, p1, p2], priority=priority)  # ← Ha de ser lex_max!
 
-    if return_Q:
-        return policy, Q
-    else:
-        return policy, None
+    return policy, Q

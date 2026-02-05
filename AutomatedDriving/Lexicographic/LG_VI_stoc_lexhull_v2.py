@@ -1,20 +1,31 @@
 import numpy as np
 from tqdm import tqdm
 from LG_utils import lex_hull_corrected, generate_all_priority_orders, lex_max
+import os
+import pickle
 
-def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7):
+def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7, MNS_filename='policies/LG_VI_lexhull_MNS.pkl', v_hulls_file=None, q_hulls_file=None):    
     """
     Lexicographic Value Iteration Algorithm using hull-based convergence.
     
     Maintains the lexicographic hull using proper convex hull operations
     in the Bellman update.
+    Args:
+        env: the environment
+        theta: convergence threshold
+        discount_factor: discount factor
+        MNS_filename: path to pickle file for caching model transitions
+        v_hulls_file: optional filename to save the V hulls
+        q_hulls_file: optional filename to save the Q hulls
+    
+    Returns:
+        policies: dict of policies for all priority orders
+        Q_hulls: Q hulls for each state-action pair
     """
     
     n_cells = env.map_num_cells
     n_actions = env.n_actions
     n_objectives = 3
-
-    MAX_ITER = 10
 
     # V stores hulls (sets of vectors) for each state
     V = {}
@@ -23,16 +34,23 @@ def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7):
             for p2 in range(n_cells):
                 V[(c, p1, p2)] = np.zeros((1, n_objectives))
 
-    model_next_state = {}
     Q_hulls = {}  # Store hull for each state-action pair
 
     pedestrian_stochastic_actions = env.agents[1].move_map[3][3]
     stochastic_state = [3, 3]
 
+    if os.path.exists(MNS_filename):
+        print("Initialising model_next_state = pickle.load(f)")
+        with open(MNS_filename, 'rb') as f:
+            model_next_state = pickle.load(f)
+    else:
+        print("Initialising model_next_state = {}")
+        model_next_state = {}
+
     iteration = 0
     total_states = len(env.states_agent_left)*len(env.states_agent_right)**2
 
-    print(f"Starting Lexicographic Hull Value Iteration (Convex hull operations)")
+    print(f"Starting Lexicographic Hull Value Iteration with lexhull")
     print(f"Total states: {total_states}, Actions: {n_actions}, Objectives: {n_objectives}")
 
     while True:
@@ -61,7 +79,7 @@ def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7):
                         action_hulls = []
                         
                         for action in range(n_actions):
-                            if iteration == 1:
+                            if (c, p1, p2, action) not in model_next_state:
                                 outcomes = []
                                 if not p1_is_stochastic and not p2_is_stochastic:
                                     env.reset(state_translated[0], state_translated[1], state_translated[2])
@@ -95,7 +113,6 @@ def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7):
                             else:
                                 outcomes = model_next_state[state_tuple + (action,)]
 
-                            # Compute Q-vectors for this action 
                             q_vectors_for_action = []
                             
                             for next_state, reward_vect, done, prob in outcomes:
@@ -111,20 +128,15 @@ def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7):
                                         q_vec = reward_vect + discount_factor * v_vector
                                         q_vectors_for_action.append(q_vec)
                             
-                            # Convert to array and store
                             action_hull = np.array(q_vectors_for_action)
                             action_hulls.append(action_hull)
                             Q_hulls[state_tuple + (action,)] = action_hull
 
-                        # Now compute the lexicographic hull across ALL actions
-                        # Concatenate all action hulls
                         all_q_vectors = np.vstack(action_hulls)
                         
-                        # Apply lexicographic hull to get only non-dominated vectors
                         _, optimal_actions_in_combined = lex_hull_corrected(all_q_vectors, n_objectives=n_objectives)
                         new_hull = all_q_vectors[list(optimal_actions_in_combined)]
 
-                        # Sort hull for consistent comparison
                         new_hull = new_hull[np.lexsort(new_hull.T[::-1])]
                         
                         V[state_tuple] = new_hull
@@ -139,7 +151,7 @@ def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7):
 
                         pbar.update(1)
             
-            print(f"\nHull size statistics:")
+            print(f"\nHull size numbers:")
             print(f"  Min hull size: {np.min(hull_sizes)}")
             print(f"  Max hull size: {np.max(hull_sizes)}")
             print(f"  Mean hull size: {np.mean(hull_sizes):.2f}")
@@ -150,13 +162,21 @@ def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7):
         if delta < theta:
             print(f"\nConverged in {iteration} iterations")
             break
-        elif iteration >= MAX_ITER:
-            print(f"\nReached maximum iterations ({MAX_ITER})")
-            print(f"Final delta = {round(delta, 3)}")
-            break
+    
+    with open(MNS_filename, 'wb') as f:
+        pickle.dump(model_next_state, f)
+    print(f"Model saved to {MNS_filename}")
 
+    if v_hulls_file is not None:
+        with open(v_hulls_file, 'wb') as f:
+            pickle.dump(V, f)
+        print(f"Model saved to {v_hulls_file}")
 
-    # Extract policies
+    if q_hulls_file is not None:
+        with open(q_hulls_file, 'wb') as f:
+            pickle.dump(Q_hulls, f)
+        print(f"Model saved to {q_hulls_file}")
+
     print("\nExtracting policies for all lexicographic orders...")
     all_priority_orders = generate_all_priority_orders(n_objectives)
     policies = {}

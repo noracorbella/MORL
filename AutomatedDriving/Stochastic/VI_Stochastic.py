@@ -1,10 +1,11 @@
 import numpy as np
 from tqdm import tqdm
+import pickle
+import os
 
 # The Markov property in MDPs means that the future states and rewards are independent of past states and actions,
 
-
-def value_iteration(env, theta=1.0, discount_factor=0.7):
+def value_iteration(env, theta=1.0, discount_factor=0.7, MNS_filename='policies/VI_stoc_MNS.pkl', v_table_file=None):
     """
     Value Iteration Algorithm as defined in Sutton and Barto's 'Reinforcement Learning: An Introduction' Section 4.4,
     (1998).
@@ -24,18 +25,20 @@ def value_iteration(env, theta=1.0, discount_factor=0.7):
     n_actions = env.n_actions
 
     V = np.zeros([n_cells, n_cells, n_cells])  # V table: each entry represents how good is it to be in this state
-    model_next_state = {}  # dict to store multiple possible next states
-    model_next_reward = {}
-    model_next_done = {}
-
-
     policy = np.zeros([n_cells, n_cells, n_cells], dtype=int)  # For each state, which action should we take?
     Q = np.zeros([n_cells, n_cells, n_cells, n_actions])  # For each state-action pair, what's the expected total reward?
 
     pedestrian_stochastic_actions = env.agents[1].move_map[3][3]
     stochastic_state = [3, 3]
-
     weight_vect = np.array(env.weights) 
+
+    if os.path.exists(MNS_filename):
+        print("Initialising model_next_state = pickle.load(f)")
+        with open(MNS_filename, 'rb') as f:
+            model_next_state = pickle.load(f)
+    else:
+        print("Initialising model_next_state = {}")
+        model_next_state = {}
 
 
     iteration = 0
@@ -60,18 +63,14 @@ def value_iteration(env, theta=1.0, discount_factor=0.7):
 
                         v_old = V[c, p1, p2]
 
-                        # Q-values for all actions in this state
                         q_values = np.zeros(n_actions)
 
-                        # Check if either pedestrian is in stochastic state
                         p1_is_stochastic = np.array_equal(state_translated[1], stochastic_state)
                         p2_is_stochastic = np.array_equal(state_translated[2], stochastic_state)
 
-                        # For this state, try every action
                         for action in range(n_actions):
 
-                            # Take action and observe next state and reward
-                            if iteration == 1:
+                            if (c, p1, p2, action) not in model_next_state:
                                 outcomes = [] # (next_state, reward, done, probability)
 
                                 if not p1_is_stochastic and not p2_is_stochastic:
@@ -145,6 +144,7 @@ def value_iteration(env, theta=1.0, discount_factor=0.7):
 
                         pbar.update(1)
 
+        
         print(f"Delta = {round(delta, 3)}, Theta = {theta}")
 
         # Check convergence
@@ -153,6 +153,15 @@ def value_iteration(env, theta=1.0, discount_factor=0.7):
             print("Learning Process finished!")
             print(f"Converged in {iteration} iterations")
             break
+
+    with open(MNS_filename, 'wb') as f:
+        pickle.dump(model_next_state, f)
+    print(f"Model saved to {MNS_filename}")
+
+    if v_table_file is not None:
+        print(f"Saving V table to {v_table_file}...")
+        with open(v_table_file, 'wb') as f:
+            pickle.dump(V, f)
 
     # Extract policy: for each state, choose action with best Q-value
     print("\nExtracting policy...")

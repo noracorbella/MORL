@@ -15,7 +15,12 @@ def convexhull_VI(env, theta=0.01, discount_factor=0.7, MNS_filename='policies/C
     saved_weights = env.weights if env.weights is not None else [1.0, 1.0, 1.0]
     env.weights = None
 
-    # Q_hulls[c, p1, p2, action] = list of vectors (each vector has 3 components)
+    V = {}
+    for c in range(n_cells):
+        for p1 in range(n_cells):
+            for p2 in range(n_cells):
+                V[(c, p1, p2)] = np.array([np.zeros(n_rewards)])
+
     Q_hulls = {}
     for c in env.states_agent_left:
         for p1 in env.states_agent_right:
@@ -56,16 +61,16 @@ def convexhull_VI(env, theta=0.01, discount_factor=0.7, MNS_filename='policies/C
                     for p2 in env.states_agent_right:
                         state = np.array([c, p1, p2])
                         state_translated = env.translate_state(state)
+                        state_tuple = (c, p1, p2)
+
+                        v_old = V[state_tuple].copy()
 
                         p1_is_stochastic = np.array_equal(state_translated[1], stochastic_state)
                         p2_is_stochastic = np.array_equal(state_translated[2], stochastic_state)
 
                         for action in range(n_actions):
-                            # Store old hull for convergence check
-                            old_hull = Q_hulls[(c, p1, p2, action)]
 
                             if (c, p1, p2, action) not in model_next_state:
-
                                 outcomes = []
 
                                 if not p1_is_stochastic and not p2_is_stochastic:
@@ -119,22 +124,8 @@ def convexhull_VI(env, theta=0.01, discount_factor=0.7, MNS_filename='policies/C
                                 else:
                                     next_c, next_p1, next_p2 = next_state
 
-                                    all_next_q_vectors = []
+                                    next_state_hull = V[(next_c, next_p1, next_p2)]
 
-                                    for next_action in range(n_actions):
-                                        next_hull = Q_hulls[(next_c, next_p1, next_p2, next_action)]
-                                        all_next_q_vectors.extend(next_hull)                               
-                                
-                                    # Complex hull of union
-                                    if len(all_next_q_vectors) > 0:
-                                        all_next_q_vectors = np.array(all_next_q_vectors)
-                                        # CH vertices
-                                        next_state_hull = get_hull(all_next_q_vectors)
-                                    else:
-                                        next_state_hull = np.array([np.zeros(n_rewards)])
-
-                                    # For this outcome: reward_vect + gamma * hull(s')
-                                    # translate_hull does: reward_vect + gamma * hull
                                     outcome_hull = translate_hull(
                                         reward_vect,
                                         discount_factor,
@@ -144,7 +135,6 @@ def convexhull_VI(env, theta=0.01, discount_factor=0.7, MNS_filename='policies/C
                                     if not isinstance(outcome_hull, np.ndarray):
                                         outcome_hull = np.array(outcome_hull)
 
-                                    # Weight this hull by probability: prob * hull
                                     outcome_hull = prob * outcome_hull
 
                                 outcome_hulls.append(outcome_hull)
@@ -165,21 +155,38 @@ def convexhull_VI(env, theta=0.01, discount_factor=0.7, MNS_filename='policies/C
                             if len(new_hull) > 1:
                                 new_hull = get_hull(new_hull)
                                                         
-                            # Store new hull
-                            Q_hulls[(c,p1,p2,action)] = new_hull
+                            # Store new Q-hull
+                            Q_hulls[(c, p1, p2, action)] = new_hull
 
-                            new_hull_size = len(new_hull)
-                            total_hull_vertices += new_hull_size
-                            num_hulls += 1
-
-                            # Convergence data
-                            if old_hull.shape == new_hull.shape:
-                                max_diff = np.max(np.abs(new_hull - old_hull))
+                        all_q_vectors = []
+                        for action in range(n_actions):
+                            q_hull = Q_hulls[(c, p1, p2, action)]
+                            if isinstance(q_hull, np.ndarray):
+                                all_q_vectors.extend(q_hull)
                             else:
-                                # Different number of vertices - mark as changed
-                                max_diff = float('inf')
-                            
-                            delta = max(delta, max_diff)
+                                all_q_vectors.extend(list(q_hull))
+                        
+                        all_q_vectors = np.array(all_q_vectors)
+                        
+                        # Get convex hull of all Q-vectors to form V
+                        if len(all_q_vectors) > 1:
+                            new_V = get_hull(all_q_vectors)
+                        else:
+                            new_V = all_q_vectors
+                        
+                        V[state_tuple] = new_V
+
+                        # Track hull statistics
+                        new_hull_size = len(new_V)
+                        total_hull_vertices += new_hull_size
+                        num_hulls += 1
+
+                        if v_old.shape == new_V.shape:
+                            max_diff = np.max(np.abs(new_V - v_old))
+                        else:
+                            max_diff = float('inf')
+                        
+                        delta = max(delta, max_diff)
 
                         pbar.update(1)
 

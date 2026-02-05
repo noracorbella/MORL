@@ -54,6 +54,17 @@ def main():
         Q_tables[priority_tuple] = Q
         
         print(f"\nCompleted training for priority {priority_order}")
+
+    for priority_order, policy in policies.items():
+        filename = f"policy_lexmax_{'_'.join(map(str, priority_order))}.npy"
+        np.save(filename, policy)
+        print(f"  Saved: {filename}")
+
+    # Save Q-tables
+    for priority_order, Q in Q_tables.items():
+        filename = f"Q_lexmax_{'_'.join(map(str, priority_order))}.npy"
+        np.save(filename, Q)
+        print(f"  Saved: {filename}")
     
 #     # ========================================================================
 #     # RESULTS SUMMARY

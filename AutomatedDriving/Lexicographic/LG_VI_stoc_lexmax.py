@@ -1,9 +1,12 @@
 import numpy as np
 from tqdm import tqdm
 from LG_utils import lex_max
+import pickle
+import os
 
 
-def LG_VI_lexmax(env, theta=1.0, discount_factor=0.7, priority=[0,1,2]):
+def LG_VI_lexmax(env, theta=1.0, discount_factor=0.7, priority=[0,1,2], MNS_filename='policies/LG_VI_lexmax_MNS.pkl', 
+                 v_table_file=None):
     """
     Lexicographic Value Iteration Algorithm for a single priority order.
 
@@ -25,21 +28,25 @@ def LG_VI_lexmax(env, theta=1.0, discount_factor=0.7, priority=[0,1,2]):
     n_objectives = len(priority)
 
     V = np.zeros([n_cells, n_cells, n_cells, n_objectives])  # V table: each entry represents how good is it to be in this state
-    model_next_state = {}  # dict to store multiple possible next states
-
-
     policy = np.zeros([n_cells, n_cells, n_cells], dtype=int)  # For each state, which action should we take?
     Q = np.zeros([n_cells, n_cells, n_cells, n_actions, n_objectives])  # For each state-action pair, what's the expected total reward?
 
     pedestrian_stochastic_actions = env.agents[1].move_map[3][3]
     stochastic_state = [3, 3]
 
+    if os.path.exists(MNS_filename):
+        print("\nInitialising model_next_state = pickle.load(f)")
+        with open(MNS_filename, 'rb') as f:
+            model_next_state = pickle.load(f)
+    else:
+        print("\nInitialising model_next_state = {}")
+        model_next_state = {}
+
 
     iteration = 0
     total_states = len(env.states_agent_left)*len(env.states_agent_right)**2 #n_cells * n_cells * n_cells
 
-    print(f"Starting Lexicographic Max Value Iteration")
-    print(f"Total states: {total_states}, Actions: {n_actions}")
+    print(f"\nTotal states: {total_states}, Actions: {n_actions}")
     print(f"Priority order: {priority}")
 
     
@@ -64,11 +71,9 @@ def LG_VI_lexmax(env, theta=1.0, discount_factor=0.7, priority=[0,1,2]):
                         p1_is_stochastic = np.array_equal(state_translated[1], stochastic_state)
                         p2_is_stochastic = np.array_equal(state_translated[2], stochastic_state)
 
-                        # For this state, try every action
                         for action in range(n_actions):
 
-                            # Take action and observe next state and reward
-                            if iteration == 1:
+                            if (c, p1, p2, action) not in model_next_state:
                                 outcomes = [] # (next_state, reward, done, probability)
 
                                 if not p1_is_stochastic and not p2_is_stochastic:
@@ -131,12 +136,12 @@ def LG_VI_lexmax(env, theta=1.0, discount_factor=0.7, priority=[0,1,2]):
                         V[c, p1, p2] = q_vectors[best_action]
 
                         # Update delta - maximum change in value function
-                        delta = max(delta, np.max(np.abs(v_old - V[c, p1, p2])))
+                        delta = max(delta, np.sum(np.abs(v_old - V[c, p1, p2])))
 
                         pbar.update(1)
 
 
-        print(f"Delta = {delta} (exact), Theta = {theta}")
+        print(f"Delta = {delta}, Theta = {theta}")
 
         # Check convergence
         if delta < theta:
@@ -145,7 +150,15 @@ def LG_VI_lexmax(env, theta=1.0, discount_factor=0.7, priority=[0,1,2]):
             print(f"Converged in {iteration} iterations")
             break
 
-        
+    with open(MNS_filename, 'wb') as f:
+        pickle.dump(model_next_state, f)
+    print(f"model_next_state saved to {MNS_filename}")
+
+    if v_table_file is not None:
+        with open(v_table_file, 'wb') as f:
+            pickle.dump(V, f)
+        print(f"V table saved to {v_table_file}...")
+
     # Extract policy: for each state, choose action with best Q-value
     print("\nExtracting policy...")
     for c in env.states_agent_left:
