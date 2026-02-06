@@ -5,7 +5,9 @@ import os
 import pickle
 
 def convexhull_VI(env, theta=0.01, discount_factor=0.7, MNS_filename='policies/CH_VI_stoc_MNS.pkl', q_hulls_file=None):
-
+    """
+    CONVERGENCE WITH Q HULLS
+    """
     n_cells = env.map_num_cells
     n_actions = env.n_actions
     n_rewards = 3 # 3 rewards: r_car, r_p1, r_p2

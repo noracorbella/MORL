@@ -2,6 +2,7 @@ import pickle
 import numpy as np
 from CH_VI_stochastic import get_initial_state_hull
 from CH_operations import max_q_value
+import os
 
 
 VALUE_ITERATION = 1
@@ -10,7 +11,7 @@ CONVEX_HULL_VI = 2
 
 if __name__ == "__main__":
 
-    algorithm_used = CONVEX_HULL_VI
+    algorithm_used = VALUE_ITERATION
 
     if algorithm_used == VALUE_ITERATION:
 
@@ -26,17 +27,64 @@ if __name__ == "__main__":
         initial_state = [43, 31, 45] 
 
         print("Results value iteration:")
+
+        print("\nScalar values for V-tables")
         for i, weights in enumerate(weights_list, 1):
             v_file = f"policies/V_table_{weights[0]}-{weights[1]}-{weights[2]}.pkl"
             
+            if not os.path.exists(v_file):
+                print(f"{i}. weights: {weights} V-table not found")
+                continue
+
             with open(v_file, 'rb') as f:
                 V = pickle.load(f)
             
             c, p1, p2 = initial_state
             initial_value = V[c, p1, p2]
             
-            print(f"{i}. weights: {weights} -> Value initial state: {initial_value}")
-    
+            print(f"{i}. weights: {weights} -> Scalar value initial state: {initial_value:.3f}")
+
+        print("\"nVector values for V tables")
+        has_vector_data =  False
+        for i, weights in enumerate(weights_list, 1):
+            v_vector_file = f"policies/V_vector_{weights[0]}-{weights[1]}-{weights[2]}.pkl"
+
+            if not os.path.exists(v_vector_file):
+                print(f"{v_vector_file} does not exist.")
+                continue
+            
+            has_vector_data = True
+            with open(v_vector_file, 'rb') as f:
+                V_vector = pickle.load(f)
+            
+            c, p1, p2 = initial_state
+            vector_value = V_vector[c, p1, p2]
+
+            weight_vect = np.array(weights)
+            computed_scalar = np.dot(vector_value, weight_vect)
+
+            # compare with stored scalar V table
+            v_file = f"policies/V_table_{weights[0]}-{weights[1]}-{weights[2]}.pkl"
+            if os.path.exists(v_file):
+                with open(v_file, 'rb') as f:
+                    V = pickle.load(f)
+                stored_scalar = V[c, p1, p2]
+            else:
+                stored_scalar = None
+
+            print(f"\n{i}. weights: {weights}")
+            print(f"   Vector: [{vector_value[0]:.3f}, {vector_value[1]:.3f}, {vector_value[2]:.3f}]")
+            print(f"   w·v = {computed_scalar:.3f}", end="")
+            
+            if stored_scalar is not None:
+                print(f"  (stored: {stored_scalar:.3f})")
+            else:
+                print()
+
+        if not has_vector_data:
+            print("\nNo vector V-tables found. Run vector_policy_evaluation.py first to generate them.")
+
+
     else: # algorithm_used == CONVEX_HULL_VI
         q_hulls_file = "policies/CH_VI_qhulls.pkl"
 

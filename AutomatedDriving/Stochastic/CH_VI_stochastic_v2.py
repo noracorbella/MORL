@@ -5,15 +5,12 @@ import os
 import pickle
 
 def convexhull_VI(env, theta=0.01, discount_factor=0.7, MNS_filename='policies/CH_VI_stoc_MNS.pkl', q_hulls_file=None):
-
+    """
+    CONVERGENCE WITH V HULLS
+    """
     n_cells = env.map_num_cells
     n_actions = env.n_actions
     n_rewards = 3 # 3 rewards: r_car, r_p1, r_p2
-
-    # weight_vect = np.array(env.weights) 
-
-    saved_weights = env.weights if env.weights is not None else [1.0, 1.0, 1.0]
-    env.weights = None
 
     V = {}
     for c in range(n_cells):
@@ -208,10 +205,6 @@ def convexhull_VI(env, theta=0.01, discount_factor=0.7, MNS_filename='policies/C
         print(f"Saving Q_hulls to {q_hulls_file}...")
         with open(q_hulls_file, 'wb') as f:
             pickle.dump(Q_hulls, f)
-    # env.weights = weight_vect
-    env.weights = saved_weights
-    
-    
     
     return Q_hulls
 

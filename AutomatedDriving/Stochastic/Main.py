@@ -1,8 +1,8 @@
 import numpy as np
 from ADS_Environment import Environment
-from VI_Stochastic import value_iteration
+from VI_Stochastic_SO import value_iteration
 from q_learning_algorithm import q_learning
-from CH_VI_stochastic import convexhull_VI, extract_policy_for_weights
+from CH_VI_stochastic_v2 import convexhull_VI, extract_policy_for_weights
 from auxiliary_functions import tester
 
 Q_LEARNING = 0

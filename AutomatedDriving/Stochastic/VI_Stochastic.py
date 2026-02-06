@@ -61,7 +61,7 @@ def value_iteration(env, theta=1.0, discount_factor=0.7, MNS_filename='policies/
                         state = np.array([c, p1, p2])
                         state_translated = env.translate_state(state)
 
-                        v_old = V[c, p1, p2]
+                        v_old = V[c, p1, p2].copy()
 
                         q_values = np.zeros(n_actions)
 
@@ -140,7 +140,7 @@ def value_iteration(env, theta=1.0, discount_factor=0.7, MNS_filename='policies/
                         V[c, p1, p2] = np.max(q_values)
 
                         # Update delta - maximum change in value function
-                        delta = max(delta, abs(v_old - V[c, p1, p2]))
+                        delta = max(delta, np.abs(v_old - V[c, p1, p2]))
 
                         pbar.update(1)
 
