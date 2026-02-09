@@ -13,7 +13,7 @@ COMPARE_BOTH = 3
 
 if __name__ == "__main__":
 
-    algorithm_used = COMPARE_BOTH  
+    algorithm_used = VALUE_ITERATION  
 
     weights_list = [
         [0, 10, 100],
@@ -36,7 +36,7 @@ if __name__ == "__main__":
         print("-"*70)
         vi_results = []
         for i, weights in enumerate(weights_list, 1):
-            v_file = f"policies/V_table_{weights[0]}-{weights[1]}-{weights[2]}.pkl"
+            v_file = f"policies/V_table_{weights[0]}-{weights[1]}-{weights[2]}.pkl" 
             
             if not os.path.exists(v_file):
                 print(f"{i}. weights: {weights} -> V-table not found")
@@ -44,7 +44,7 @@ if __name__ == "__main__":
                 continue
 
             with open(v_file, 'rb') as f:
-                V = pickle.load(f)
+                V = pickle.load(f)        # scalar v table
             
             c, p1, p2 = initial_state
             initial_value = V[c, p1, p2]
@@ -97,8 +97,8 @@ if __name__ == "__main__":
                 print()
 
         if not has_vector_data:
-            print("\n⚠ No vector V-tables found.")
-            print("   Run: python vector_policy_evaluation.py")
+            print("\nNo vector V-tables found.")
+            print("Run: python vector_policy_evaluation.py")
 
         if algorithm_used == VALUE_ITERATION:
             exit(0)
@@ -128,7 +128,7 @@ if __name__ == "__main__":
             print(f"\nInitial state value hull has {len(value_hull)} vertices:")
             print("-"*70)
             for i, vector in enumerate(value_hull, 1):
-                print(f"{i:>2}. [{vector[0]:.2f}, {vector[1]:.2f}, {vector[2]:.2f}]")
+                print(f"{i}. [{vector[0]:.2f}, {vector[1]:.2f}, {vector[2]:.2f}]")
 
             print("\n" + "#"*70)
             print("Scalar values for specific weight combinations:")
@@ -175,9 +175,9 @@ if __name__ == "__main__":
             if vi_res and 'vector' in vi_res:
                 vi_vec = vi_res['vector']
                 vi_scalar = vi_res['computed_scalar']
-                print(f"   VI   vector: [{vi_vec[0]:.3f}, {vi_vec[1]:.3f}, {vi_vec[2]:.3f}] -> {vi_scalar:.3f}")
+                print(f"VI vector: [{vi_vec[0]:.3f}, {vi_vec[1]:.3f}, {vi_vec[2]:.3f}] -> {vi_scalar:.3f}")
             else:
-                print(f"   VI   vector: Not available")
+                print(f"VI vector: Not available")
                 vi_vec = None
 
             if chvi_res and 'vector' in chvi_res:

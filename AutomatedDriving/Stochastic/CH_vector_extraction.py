@@ -62,14 +62,14 @@ def get_initial_state_vector(Q_hulls, initial_state_indices, weights, n_actions)
         else:
             all_vectors.extend(list(hull))
     
-    all_vectors = np.array(all_vectors)
+    all_vectors = np.array(all_vectors) # all hull vectors for the 6 actions in initial state
     
     if len(all_vectors) > 1:
-        value_hull = get_hull(all_vectors)
+        value_hull = get_hull(all_vectors) # get convex hull with all vectors
     else:
         value_hull = all_vectors
     
-    optimal_vector = get_optimal_vector_from_hull(weights, value_hull)
+    optimal_vector = get_optimal_vector_from_hull(weights, value_hull) # pick best vector from hull for these weights
     
     return optimal_vector
 
@@ -84,7 +84,7 @@ def extract_V_vectors_for_weights(Q_hulls, weights, env, n_actions):
     :param weights: Weight vector [w_car, w_ped1, w_ped2]
     :param env: Environment
     :param n_actions: Number of actions
-    :return: V_vector array of shape [n_cells, n_cells, n_cells, 3]
+    :return: V_vector array of shape [n_cells, n_cells, n_cells, 3] for all states
     """
     n_cells = env.map_num_cells
     V_vector = np.zeros([n_cells, n_cells, n_cells, 3])
@@ -140,7 +140,7 @@ if __name__ == "__main__":
     print("#"*80)
     
     for i, weights in enumerate(weights_list, 1):
-        optimal_vector = get_initial_state_vector(Q_hulls, initial_state, weights, n_actions)
+        optimal_vector = get_initial_state_vector(Q_hulls, initial_state, weights, n_actions) # get vector only for initial state
         
         weights_norm = np.array(weights, dtype=float)
         weights_norm = weights_norm / np.sum(weights_norm)
@@ -158,7 +158,7 @@ if __name__ == "__main__":
         
         env = Environment(weights=weights)
         
-        V_vector = extract_V_vectors_for_weights(Q_hulls, weights, env, n_actions)
+        V_vector = extract_V_vectors_for_weights(Q_hulls, weights, env, n_actions) #get vectors for all states
         
         v_vector_file = f"policies/CHVI_V_vector_{weights[0]}-{weights[1]}-{weights[2]}.pkl"
         with open(v_vector_file, 'wb') as f:
