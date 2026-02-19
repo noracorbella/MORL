@@ -236,7 +236,7 @@ def extract_policy_for_weights(Q_hulls, weights, env, n_actions):
                         hull = np.array(hull)
 
                     # Extract max Q-value for this weight vector
-                    # max_{q ∈ hull} w · q
+                    # max_{q in hull} w · q
                     q_value = max_q_value(weights, hull)
                     
                     if q_value > best_value:

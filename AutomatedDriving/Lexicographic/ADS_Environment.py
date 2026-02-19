@@ -443,19 +443,19 @@ class Environment:
             speed_multiplier = 1
 
         reward = [0.0, 0.0, 0.0]
-        # Individual objective
+        # Individual objective - que el cotxe arribi abans possible
         if (agent.get_position() == self.agent_goal_2) or (agent.get_position() == self.agent_goal_1):
             reward[0] += 14.0
             agent.succeeds = True
         else:
             reward[0] += -1.0
 
-        # Value Internal Safety
+        # Value Internal Safety - eevitar bonys
         if self.internal_damage:
             self.internal_damage = False
             reward[1] += Values.SAFETY_INTERNAL*speed_multiplier  # penalising for getting hurt
 
-        # Value External Safety
+        # Value External Safety - evitar xocar amb persones
         if self.external_damage > 0:
             reward[2] += self.external_damage*Values.SAFETY_EXTERNAL
             self.external_damage = 0

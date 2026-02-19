@@ -114,4 +114,13 @@ def lex_hull_corrected(q_vectors, n_objectives=3, tol=1e-9):
         lex_optimal_actions[order_tuple] = best_action
         optimal_action_set.add(best_action)
     
-    return lex_optimal_actions, optimal_action_set  
+    return lex_optimal_actions, optimal_action_set
+
+if __name__ == "__main__":
+
+
+    q_vectors = np.array([[0.83, -7.30, -2.45],[0.83, -17.30, -0.73],[-1.91, 0.00, -1.25],[-2.32, 0.00, 0.00],[-0.01, -16.08, 0.00], [-2.32, 0.00, 0.00]])
+
+    lex_optimal_actions, optimal_action_set = lex_hull_corrected(q_vectors)
+    print("lex_optimal_actions", lex_optimal_actions)
+    print("\noptimal_action_set", optimal_action_set)

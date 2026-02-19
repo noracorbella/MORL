@@ -28,12 +28,12 @@ action = 1
 
 weights = [1.0, 100.0, 100.0]
 next_state, reward_vect, done_array = env.step([action])
-print(next_state, reward_vect, done_array, "\n" )
+print(f"next_state: {next_state}, reward_vect: {reward_vect}, done_array: {done_array}\n" )
 
 
 # reward_scalar = np.dot(reward_vect, weight_vect)
 # print(reward_scalar)
 
-a = [1,2,3]
-a.extend([4,5])
-print(a)
+a = [-0.0150, -16.8144, 0.0000]
+w = [10, 0, 100]
+print(f"{np.dot(a,w):.4f}")

@@ -5,9 +5,9 @@ from auxiliary_functions import tester
 
 if __name__ == "__main__":
     
-    Training = True  # True: train and save policy, False: load and test existing policy
+    Training = False  # True: train and save policy, False: load and test existing policy
     
-    priority = [2, 1, 0]
+    priority = [2, 0, 1]
     
     priority_str = f"{priority[0]}-{priority[1]}-{priority[2]}"
     train_policy_name = f"policies/LG_VI_lexmax_{priority_str}_policy.npy"

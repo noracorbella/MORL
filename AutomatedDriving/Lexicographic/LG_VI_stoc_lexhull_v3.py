@@ -1,6 +1,7 @@
 import numpy as np
 from tqdm import tqdm
 from LG_utils import lex_hull_corrected, generate_all_priority_orders, lex_max
+from CH_operations import get_hull, translate_hull, sum_hulls, max_q_value
 import os
 import pickle
 
@@ -34,7 +35,12 @@ def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7, MNS_filename='policies/LG
             for p2 in range(n_cells):
                 V[(c, p1, p2)] = np.zeros((1, n_objectives))
 
-    Q_hulls = {}  # Store hull for each state-action pair
+    Q_hulls = {}
+    for c in env.states_agent_left:
+        for p1 in env.states_agent_right:
+            for p2 in env.states_agent_right:
+                for a in range(n_actions):
+                    Q_hulls[(c, p1, p2, a)] = np.array([np.zeros(n_objectives)])
 
     pedestrian_stochastic_actions = env.agents[1].move_map[3][3]
     stochastic_state = [3, 3]
@@ -57,35 +63,33 @@ def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7, MNS_filename='policies/LG
         iteration += 1
         print(f"\nIteration {iteration}")
         delta = 0
+        total_hull_vertices = 0
+        num_hulls = 0
 
         with tqdm(total=total_states, desc=f"Iteration {iteration}") as pbar:
-            hull_sizes = []
             for c in env.states_agent_left:
                 for p1 in env.states_agent_right:
                     for p2 in env.states_agent_right:
-
-                        hull_sizes.append(V[(c, p1, p2)].shape[0])
-
                         state = np.array([c, p1, p2])
                         state_translated = env.translate_state(state)
                         state_tuple = (c, p1, p2)
 
-                        old_hull = V[state_tuple].copy()
+                        v_old = V[state_tuple].copy()
 
                         p1_is_stochastic = np.array_equal(state_translated[1], stochastic_state)
                         p2_is_stochastic = np.array_equal(state_translated[2], stochastic_state)
 
-                        # For each action, compute the Q-hull
-                        action_hulls = []
-                        
                         for action in range(n_actions):
                             if (c, p1, p2, action) not in model_next_state:
                                 outcomes = []
+
                                 if not p1_is_stochastic and not p2_is_stochastic:
                                     env.reset(state_translated[0], state_translated[1], state_translated[2])
-                                    next_state, reward_vect, done_array = env.step([action])
+                                    next_state, reward, done_array = env.step([action])
                                     done = done_array[0]
-                                    outcomes.append((next_state, reward_vect, done, 1.0))
+                                    prob = 1.0
+                                    outcomes.append((next_state, reward, done, prob))
+
                                 elif p1_is_stochastic and not p2_is_stochastic:
                                     for p1_action in pedestrian_stochastic_actions:
                                         env.reset(state_translated[0], state_translated[1], state_translated[2])
@@ -93,6 +97,7 @@ def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7, MNS_filename='policies/LG
                                         done = done_array[0]
                                         prob = 1.0 / len(pedestrian_stochastic_actions)
                                         outcomes.append((next_state, reward_vect, done, prob))
+
                                 elif not p1_is_stochastic and p2_is_stochastic:
                                     for p2_action in pedestrian_stochastic_actions:
                                         env.reset(state_translated[0], state_translated[1], state_translated[2])
@@ -100,7 +105,9 @@ def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7, MNS_filename='policies/LG
                                         done = done_array[0]
                                         prob = 1.0 / len(pedestrian_stochastic_actions)
                                         outcomes.append((next_state, reward_vect, done, prob))
+
                                 else:
+                                    # Both pedestrians are stochastic
                                     for p1_action in pedestrian_stochastic_actions:
                                         for p2_action in pedestrian_stochastic_actions:
                                             env.reset(state_translated[0], state_translated[1], state_translated[2])
@@ -108,61 +115,99 @@ def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7, MNS_filename='policies/LG
                                             done = done_array[0]
                                             prob = 1.0 / (len(pedestrian_stochastic_actions) ** 2)
                                             outcomes.append((next_state, reward_vect, done, prob))
-                                
-                                model_next_state[state_tuple + (action,)] = outcomes
-                            else:
-                                outcomes = model_next_state[state_tuple + (action,)]
 
-                            q_vectors_for_action = []
-                            
+                                model_next_state[(c, p1, p2, action)] = outcomes
+                            else:
+                                outcomes = model_next_state[(c, p1, p2, action)]
+
+                            outcome_hulls = []
                             for next_state, reward_vect, done, prob in outcomes:
                                 if done:
-                                    # Terminal state: Q = reward
-                                    q_vectors_for_action.append(reward_vect)
+                                    # terminal state 
+                                    outcome_hull = prob * np.array([reward_vect])
                                 else:
-                                    # Non-terminal: Q = reward + gamma * V_hull
-                                    next_hull = V[(next_state[0], next_state[1], next_state[2])]
-                                    
-                                    # For each vector in the next state's hull, compute Q
-                                    for v_vector in next_hull:
-                                        q_vec = reward_vect + discount_factor * v_vector
-                                        q_vectors_for_action.append(q_vec)
-                            
-                            action_hull = np.array(q_vectors_for_action)
-                            action_hulls.append(action_hull)
-                            Q_hulls[state_tuple + (action,)] = action_hull
+                                    next_c, next_p1, next_p2 = next_state
+                                    next_state_hull = V[(next_c, next_p1, next_p2)]
 
-                        all_q_vectors = np.vstack(action_hulls)
-                        
-                        _, optimal_actions_in_combined = lex_hull_corrected(all_q_vectors, n_objectives=n_objectives)
-                        new_hull = all_q_vectors[list(optimal_actions_in_combined)]
+                                    # translate_hull does: reward + gamma * hull
+                                    outcome_hull = translate_hull(
+                                        reward_vect,
+                                        discount_factor,
+                                        next_state_hull
+                                    )
 
-                        new_hull = new_hull[np.lexsort(new_hull.T[::-1])]
+                                    if not isinstance(outcome_hull, np.ndarray):
+                                        outcome_hull = np.array(outcome_hull)
 
-                        V[state_tuple] = new_hull
+                                    outcome_hull = prob * outcome_hull
 
-                        # Convergence check
-                        if old_hull.shape == new_hull.shape:
-                            max_diff = np.max(np.abs(new_hull - old_hull))
+                                outcome_hulls.append(outcome_hull)
+
+                            # Combine outcomes using Minkowski sum 
+                            if len(outcome_hulls) == 1:
+                                # Deterministic 
+                                new_q_hull = outcome_hulls[0]
+                            else:
+                                # Stochastic Minkowski sum of scaled hulls
+                                combined_hull = outcome_hulls[0]
+                                for outcome_hull in outcome_hulls[1:]:
+                                    combined_hull = sum_hulls(combined_hull, outcome_hull)
+                                new_q_hull = combined_hull
+
+                            if not isinstance(new_q_hull, np.ndarray):
+                                new_q_hull = np.array(new_q_hull)
+
+                            if len(new_q_hull) > 1:
+                                _, optimal_indices = lex_hull_corrected(new_q_hull, n_objectives=n_objectives)
+                                new_q_hull = new_q_hull[list(optimal_indices)]
+
+                            Q_hulls[(c, p1, p2, action)] = new_q_hull
+
+                        all_q_vectors = []
+                        for action in range(n_actions):
+                            q_hull = Q_hulls[(c, p1, p2, action)]
+                            if isinstance(q_hull, np.ndarray):
+                                all_q_vectors.extend(q_hull)
+                            else:
+                                all_q_vectors.extend(list(q_hull))
+
+                        all_q_vectors = np.array(all_q_vectors)
+
+                        if len(all_q_vectors) > 1:
+                            _, optimal_indices = lex_hull_corrected(all_q_vectors, n_objectives=n_objectives)
+                            new_V = all_q_vectors[list(optimal_indices)]
+                        else:
+                            new_V = all_q_vectors
+
+                        # Sort for consistent comparison
+                        new_V = new_V[np.lexsort(new_V.T[::-1])]
+
+                        V[state_tuple] = new_V
+
+                        # Track 
+                        new_hull_size = len(new_V)
+                        total_hull_vertices += new_hull_size
+                        num_hulls += 1
+
+                        # Convergence 
+                        if v_old.shape == new_V.shape:
+                            max_diff = np.max(np.abs(new_V - v_old))
                         else:
                             max_diff = float('inf')
-                        
+
                         delta = max(delta, max_diff)
 
                         pbar.update(1)
-            
-            print(f"\nHull size numbers:")
-            print(f"  Min hull size: {np.min(hull_sizes)}")
-            print(f"  Max hull size: {np.max(hull_sizes)}")
-            print(f"  Mean hull size: {np.mean(hull_sizes):.2f}")
-            print(f"  States with hull size 1: {np.sum(np.array(hull_sizes) == 1)}/{len(hull_sizes)}")
 
+        avg_hull_size = total_hull_vertices / num_hulls if num_hulls > 0 else 0
         print(f"Delta = {round(delta, 3)}, Theta = {theta}")
+        print(f"Average hull size: {avg_hull_size:.2f} vertices per state")
 
         if delta < theta:
             print(f"\nConverged in {iteration} iterations")
             break
-    
+
+    # Save model
     with open(MNS_filename, 'wb') as f:
         pickle.dump(model_next_state, f)
     print(f"Model saved to {MNS_filename}")
@@ -170,42 +215,72 @@ def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7, MNS_filename='policies/LG
     if v_hulls_file is not None:
         with open(v_hulls_file, 'wb') as f:
             pickle.dump(V, f)
-        print(f"Model saved to {v_hulls_file}")
+        print(f"V hulls saved to {v_hulls_file}")
 
     if q_hulls_file is not None:
         with open(q_hulls_file, 'wb') as f:
             pickle.dump(Q_hulls, f)
-        print(f"Model saved to {q_hulls_file}")
+        print(f"Q hulls saved to {q_hulls_file}")
 
     print("\nExtracting policies for all lexicographic orders...")
     all_priority_orders = generate_all_priority_orders(n_objectives)
     policies = {}
-    
+
     for priority_order in all_priority_orders:
         priority_tuple = tuple(priority_order)
         policy = np.zeros([n_cells, n_cells, n_cells], dtype=int)
-        
+
         for c in env.states_agent_left:
             for p1 in env.states_agent_right:
                 for p2 in env.states_agent_right:
                     state_tuple = (c, p1, p2)
-                    
-                    # For each action, get its representative Q-vector
-                    # (We need to pick ONE vector from each action's hull)
+
+                    # For each action, get its best Q-vector for this priority
                     q_vectors = []
                     for action in range(n_actions):
                         action_hull = Q_hulls[state_tuple + (action,)]
-                        # Use lexicographic max for THIS priority to select representative
                         best_idx = lex_max(action_hull, priority=list(priority_order))
                         q_vectors.append(action_hull[best_idx])
-                    
+
                     q_vectors = np.array(q_vectors)
-                    
-                    # Now find best action for this priority
+
+                    # Find best action for this priority
                     best_action = lex_max(q_vectors, priority=list(priority_order))
                     policy[c, p1, p2] = best_action
-        
+
         policies[priority_tuple] = policy
         print(f"  Extracted policy for priority order {priority_order}")
 
     return policies, Q_hulls
+
+
+
+def get_initial_state_hull(Q_hulls, initial_state_indices, n_actions):
+    """
+    Get the value hull for the initial state by taking the convex hull
+    of all Q-values across actions.
+    
+    :param Q_hulls: The Q_hulls dictionary from convexhull_VI
+    :param initial_state_indices: [c, p1, p2] indices for the initial state
+    :param n_actions: Number of actions
+    :return: Array of vectors representing the value hull for the initial state
+    """
+    c, p1, p2 = initial_state_indices
+    
+    all_vectors = []
+    for action in range(n_actions):
+        hull = Q_hulls[(c, p1, p2, action)]
+        if isinstance(hull, np.ndarray):
+            all_vectors.extend(hull)
+        else:
+            all_vectors.extend(list(hull))
+    
+    all_vectors = np.array(all_vectors)
+    
+    # Get the convex hull of all Q-vectors
+    if len(all_vectors) > 1:
+        value_hull = get_hull(all_vectors)
+    else:
+        value_hull = all_vectors
+    
+    return value_hull

@@ -1,6 +1,6 @@
 import numpy as np
 from ADS_Environment import Environment
-from VI_Stochastic_SO import value_iteration
+from VI_Stochastic import value_iteration
 from q_learning_algorithm import q_learning
 from CH_VI_stochastic_v2 import convexhull_VI, extract_policy_for_weights
 from auxiliary_functions import tester
@@ -10,16 +10,16 @@ VALUE_ITERATION = 1
 CONVEX_HULL_VI = 2 
 
 if __name__ == "__main__":
-    algorithm_used = CONVEX_HULL_VI
+    algorithm_used = VALUE_ITERATION
   
 
     # For CONVEX_HULL_VI
     Calculate_hulls = True # True: compute Q-hulls, False: extract policy from existing hulls
 
     # For Q_LEARNING and VALUE_ITERATION
-    Training = True        # True: train and save policy, False: load and test existing policy
+    Training = False        # True: train and save policy, False: load and test existing policy
 
-    weights = [100, 0, 10]
+    weights = [10, 0, 100]  
 
     train_policy_name = f"policies/VI_stochastic_{weights[0]}-{weights[1]}-{weights[2]}-policy.npy"
     test_policy_name = f"policies/VI_stochastic_{weights[0]}-{weights[1]}-{weights[2]}-policy.npy"
@@ -129,3 +129,5 @@ if __name__ == "__main__":
             
             print("Testing policy...\n")
             tester(env, policy, drawing=True)
+
+

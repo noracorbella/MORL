@@ -1,14 +1,14 @@
 import numpy as np
 from ADS_Environment import Environment
-from LG_VI_stoc_lexhull_v2 import LG_VI_lexhull
+from LG_VI_stoc_lexhull_v3 import LG_VI_lexhull
 from auxiliary_functions import tester
 
 if __name__ == "__main__":
     
-    Training = True  # True: train and save, False: load and test
+    Training = False  # True: train and save, False: load and test
     
     # For testing, choose which priority order to test
-    test_priority = [0, 1, 2]
+    test_priority = [2, 0, 1]
     
     if Training:
         print("Training Lexicographic Value Iteration (lexhull)")
