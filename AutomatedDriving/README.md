@@ -1,94 +1,103 @@
 # Multi-Objective Reinforcement Learning for Automated Driving Systems
- 
-This repository contains the implementation and evolution of multi-objective reinforcement learning (MORL) algorithms applied to an ethical automated driving scenario. The project explores different approaches to handling competing objectives in autonomous vehicle decision-making.
- 
-## Project Overview
- 
-The core problem models an autonomous vehicle navigating an urban environment while balancing three competing objectives:
- 
-1. **Individual Achievement**: Reaching the goal efficiently
-2. **Internal Safety**: Avoiding damage to the vehicle from obstacles
-3. **External Safety**: Preventing collisions with pedestrians
- 
-This repository documents the progressive development of MORL solutions, from deterministic weighted approaches to lexicographic priority-based methods.
- 
+
+This repository contains the research code for a Master's Thesis on applying **multi-objective reinforcement learning** to ethical decision-making in autonomous vehicles — specifically how an AV should navigate when it must balance competing objectives: reaching its goal, avoiding internal collisions, and protecting pedestrians.
+
+## Research Overview
+
+A controlled car must navigate a grid while two pedestrians move through the environment. Three objectives compete:
+
+- **Objective 0 — Vehicle goal**: reaching the destination
+- **Objective 1 — Internal safety**: avoiding collisions with obstacles
+- **Objective 2 — External safety**: avoiding collisions with pedestrians
+
+Classical single-objective RL collapses these into a scalar reward using manually specified weights, which is brittle and opaque. This project implements and compares two weight-free multi-objective approaches:
+
+1. **Convex Hull Value Iteration (CHVI)** — computes the full Pareto front; any policy can be extracted post-hoc by specifying weights
+2. **Lexicographic Value Iteration (LG-VI)** — eliminates weight specification entirely by defining a strict priority ordering over objectives
+
+The progression across three versions shows how the algorithms evolve from a deterministic baseline to handling stochastic pedestrian behavior to removing the need for weights altogether.
+
 ## Repository Structure
- 
-The project is organized chronologically to show the evolution of the implementation:
- 
-### **AutomatedDriving/ADS_Code/** - Version 1: Deterministic Baseline
-Initial implementation with weighted scalarisation in a deterministic environment.
-- Basic Q-Learning and Value Iteration
-- Convex Hull Value Iteration for multi-objective optimisation
-- Deterministic agent behavior
- 
-### **AutomatedDriving/Stochastic/** - Version 2: Adding Uncertainty
-Extended the baseline to handle stochastic pedestrian behavior.
-- Adapted algorithms for stochastic transitions
-- Pedestrians have probabilistic movement at certain locations
-- Requires weight specification
- 
-### **AutomatedDriving/Lexicographic/** - Version 3: Weight-Free MORL
-Implementation using lexicographic ordering to eliminate weight specification.
-- **Lexicographic Value Iteration**: Priority-based decision making without weights
-- **Flexible priority specification**: All 6 possible objective orderings
-- **Policy comparison tools**: Analyse effects of different priorities
-- **Convex Hull methods**: Train once, extract policies
-  
-### **Bibliografia/** - References and Learning Materials
-Collection of papers, tutorials, and presentations on MORL and reinforcement learning.
- 
+
+```
+AutomatedDriving/
+├── ADS_code/        Version 1 — Deterministic baseline (Q-Learning, VI, Convex Hull VI)
+├── Stochastic/      Version 2 — Stochastic pedestrian behavior (all algorithms adapted)
+├── Lexicographic/   Version 3 — Weight-free lexicographic MORL (all 6 priority orderings)
+└── Comparison/      Algorithm benchmarking: runtime and policy comparison
+```
+
+Each version is self-contained with its own `README.md`.
+
+## Environment
+
+| Property | Value |
+|---|---|
+| Grid | 9×7 cells (63 total) |
+| Cell types | Accessible (car), Pedestrian-only, Crosswalk (everyone), Inaccessible |
+| Agents | 1 controlled car + 2 pedestrians |
+| State space | ~250,000 states (`car_pos × ped1_pos × ped2_pos`) |
+| Actions | 6 (RIGHT, UP, LEFT + fast variants) |
+| Reward | Vectorial `[r_car, r_ped1, r_ped2]` |
+
+## Algorithms
+
+| Algorithm | Module | Weight-free? | Stochastic? |
+|---|---|---|---|
+| Q-Learning | All | No | Via sampling |
+| Value Iteration | All | No | Yes (v2+) |
+| Convex Hull VI (CHVI) | ADS_code, Stochastic | No (post-hoc) | Yes (Stochastic) |
+| Lexicographic VI (LG-VI) | Lexicographic | **Yes** | Yes |
+| Lexicographic Convex Hull VI | Lexicographic | **Yes** | Yes |
+
 ## Quick Start
- 
-### Running the Current Implementation (Lexicographic)
- 
+
 ```bash
-cd AutomatedDriving/Lexicographic
- 
-# Train a policy prioritizing pedestrian safety
-python Main_v2.py
-# Edit the file to set: LG_priority = [1,2,0]  # Ped1 > Ped2 > Car
- ```
- 
-See `AutomatedDriving/Lexicographic/README.md` for detailed usage instructions.
- 
-## Key Concepts
- 
-### Multi-Objective Reinforcement Learning (MORL)
- 
-Traditional RL optimizes a single scalar reward. MORL handles multiple, often conflicting objectives:
- 
-- **Scalarisation Approach** (Versions 1 & 2): Combine objectives using weights
-  - `r_total = w_1·r_car + w_2·r_ped1 + w_3·r_ped2`
-  - **Challenge**: Choosing appropriate weights is difficult and domain-specific
- 
-- **Lexicographic Approach** (Version 3): Strict priority ordering
-  - Compare objectives sequentially by importance
-  - No weights needed - only ordinal preferences
-  - Example: `[2,1,0]` means prioritize r_ped2 first, r_ped1 second, r_car last
- 
-### Lexicographic Ordering
- 
-A lexicographic ordering evaluates objectives in strict priority order:
- 
-1. Maximise the highest priority objective
-2. If tied, maximise the second priority objective
-3. Continue until tie is broken or all objectives considered
- 
-### Convex Hull Value Iteration
- 
-A technique that computes the set of all Pareto-optimal Q-vectors:
- 
-- **Train once**: Compute convex hulls of Q-values for all state-action pairs
-- **Extract many**: Derive optimal policies for any weight vector or lexicographic ordering
-- **Flexibility**: Explore the full spectrum of possible trade-offs post-training
- 
- 
-## 🛠️ Technical Requirements
- 
-- Python 3.7+
-- NumPy
-- Pygame
-- tqdm 
-- scipy
-- matplotlib 
+# Run the algorithm benchmark (trains from scratch — see timing table below)
+cd Comparison
+python Benchmark1_CHVI.py          # CHVI: ~222 s total
+python Benchmark2_LGVI.py          # 6x LG-VI: ~131 s total
+python Benchmark3_LGVI_lexhull.py  # LG Hull VI: ~139 s total
+
+# Train and visualise a lexicographic policy
+cd Lexicographic
+python Main_lexmax_simple.py
+```
+
+## Requirements
+
+```
+Python 3.7+
+numpy
+scipy
+pygame
+tqdm
+matplotlib
+```
+
+Install with:
+```bash
+pip install numpy scipy pygame tqdm matplotlib
+```
+
+## Generated Files
+
+The `policies/`, `allpolicies/`, and `videos/` directories are excluded from this repository (see `.gitignore`). All algorithms train from scratch. Typical training times:
+
+| Module | Algorithm | Approx. time |
+|---|---|---|
+| ADS_code | Value Iteration | < 1 min |
+| Stochastic | VI Stochastic | ~2 min |
+| Stochastic | Convex Hull VI | ~5 min |
+| Lexicographic | LG-VI (one priority) | ~2 min |
+| Lexicographic | LG Convex Hull VI | ~2.5 min |
+
+See each module's `README.md` for full training and testing instructions.
+
+## Citation
+
+Corbella Alcántara, Nora. *Multi-Objective Reinforcement Learning for Ethical Decision-Making in Automated Driving Systems*. Master's Thesis, Universitat Politècnica de Catalunya, 2026.
+
+## License
+
+Apache License 2.0 — see [LICENSE](../LICENSE).

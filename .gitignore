@@ -1,4 +1,26 @@
-FirstSteps/
+# Python cache
 __pycache__/
-*.pyc
+*.py[cod]
 .venv/
+
+# Generated policy/value files (trained outputs — regenerate by running scripts)
+*.npy
+*.pkl
+
+# Generated media
+*.mp4
+*.avi
+videos/
+
+# Comparison module: large generated data directories
+AutomatedDriving/Comparison/allpolicies/
+AutomatedDriving/Comparison/policies/
+
+# Personal/internal notes
+*.docx
+
+# Historical
+FirstSteps/
+
+# Claude Code working directory
+.claude/

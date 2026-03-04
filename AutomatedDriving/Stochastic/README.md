@@ -89,7 +89,7 @@ All algorithms updated to handle stochasticity:
 - `tester`: Visualized policy testing
 - Updated to handle stochastic outcomes
  
-**`window.py`**, **`graphics.py`**, **`dummy.py`**
+**`window.py`**, **`graphics.py`**
 - Same as Version 1
  
 ## Usage
@@ -190,9 +190,8 @@ Stochastic/
 ├── auxiliary_functions.py        # Testing utilities
 ├── window.py                     # Pygame visualization
 ├── graphics.py                   # Plotting
-├── dummy.py                      # Quick tests
 ├── wastebasket.png               # Visualization icon
-└── policies/                     # Trained policies
+└── policies/                     # Trained policies (generated, not in repo)
     ├── VI_stochastic_*.npy       # VI policies
     ├── CHVI_*.npy                # Extracted policies
     └── CH_qhulls.npy             # Q-hulls (large!)

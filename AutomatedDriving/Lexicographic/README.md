@@ -160,17 +160,6 @@ This directory contains implementations of various reinforcement learning algori
   - Shows how many states have different actions
   - Prints example states where policies differ
 
-**`debug_LGCHVI.py`**
-- Diagnostic tool for Convex Hull VI
-- `inspect_qhulls(q_hulls_file)` (line 7-148):
-  - Loads and analyzes Q-hull structure
-  - Shows hull size per action
-  - Max achievable value per objective
-  - Which action chosen under each priority
-- `lex_choose_action(actions_info, priority)` (line 150-170):
-  - Simulates lexicographic selection
-  - Helps debug unexpected action choices
-
 **`diagnostic_compare_policies.py`**
 - Compares Value Iteration (weighted) vs Lexicographic VI
 - Loads policies with weights [1, 100, 100] vs lex priorities
@@ -190,18 +179,6 @@ This directory contains implementations of various reinforcement learning algori
 - Loads reward data from 'graphics.npy'
 - Plots moving average (window=500) of objectives
 - Shows convergence over training episodes
-
-**`dummy.py`**
-- Quick testing script for environment exploration
-- Examines state representation and dimensions
-- Tests basic operations: step(), reset()
-- Useful for understanding MDP structure
-
-**`p.py`**
-- Scratch/test file for priority order experiments
-- Tests `generate_all_priority_orders()`
-- Demonstrates tuple conversion for dictionary keys
-- Can be used for quick prototyping
 
 ## Pre-Trained Policies
 

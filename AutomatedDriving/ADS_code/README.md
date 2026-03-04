@@ -98,9 +98,6 @@ This version models a deterministic automated driving scenario where:
 - Visualizes reward evolution over episodes
 - Moving average smoothing
  
-**`dummy.py`**
-- Quick testing and debugging script
- 
 ## Usage
  
 ### Training a Policy
@@ -154,7 +151,6 @@ policy = extract_policy_for_weights(q_hulls, weights, env, env.n_actions)
 ADS_code/
 ├── README.md                          # This file
 ├── Main.py                            # Main execution script
-├── Main2.py                           # Alternative main (older)
 ├── ADS_Environment.py                 # Environment/MDP definition
 ├── ItemAndAgent.py                    # Agent classes
 ├── constants.py                       # Reward constants
@@ -162,12 +158,10 @@ ADS_code/
 ├── value_iteration_algorithm_original.py  # Value Iteration
 ├── convexhull_VI.py                   # Convex Hull Value Iteration
 ├── convexhull.py                      # Early convex hull experiments
-├── convexhull_basura.py               # Discarded code
 ├── CH_operations.py                   # Convex hull utilities
 ├── auxiliary_functions.py             # Testing utilities
 ├── window.py                          # Pygame visualization
 ├── graphics.py                        # Matplotlib plotting
-├── dummy.py                           # Quick tests
 ├── wastebasket.png                    # Icon for visualization
-└── policies/                          # Trained policies (.npy)
+└── policies/                          # Trained policies (generated, not in repo)
 ```
