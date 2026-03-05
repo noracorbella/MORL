@@ -1,7 +1,7 @@
 import numpy as np
 from tqdm import tqdm
-from LG_utils import lex_hull_corrected, generate_all_priority_orders, lex_max
-from CH_operations import get_hull, translate_hull, sum_hulls, max_q_value
+from Lexicographic.LG_utils import lex_hull_corrected, generate_all_priority_orders, lex_max
+from EnvironmentFunctions.CH_operations import get_hull, translate_hull, sum_hulls, max_q_value
 import os
 import pickle
 

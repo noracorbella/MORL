@@ -1,6 +1,6 @@
 import numpy as np
 from tqdm import tqdm
-from LG_utils import lex_max
+from Lexicographic.LG_utils import lex_max
 import pickle
 import os
 

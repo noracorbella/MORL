@@ -1,7 +1,7 @@
 import numpy as np
-from ADS_Environment import Environment
-from LG_VI_stoc_lexmax import LG_VI_lexmax
-from auxiliary_functions import tester
+from EnvironmentFunctions.ADS_Environment import Environment
+from Lexicographic.LG_VI_stoc_lexmax import LG_VI_lexmax
+from EnvironmentFunctions.auxiliary_functions import tester
 
 if __name__ == "__main__":
     
