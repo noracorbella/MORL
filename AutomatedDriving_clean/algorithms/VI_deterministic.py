@@ -86,7 +86,7 @@ def value_iteration(env, theta=1.0, discount_factor=0.7):
                                 # Terminal state - no future value (q value is the immediate reward)
                                 q_values[action] = reward_scalar
                             else:
-                                # Q(s,a) = r(s,a) + γ * V(s')
+                                # Q(s,a) = r(s,a) + gamma * V(s')
                                 q_values[action] = (
                                     reward_scalar
                                     + discount_factor
