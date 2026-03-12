@@ -1,7 +1,6 @@
 import pygame
 from pygame import __rect_constructor as rc
 import sys
-import os
 
 RIGHT = 0
 UP = 1

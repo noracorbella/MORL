@@ -91,7 +91,7 @@ class Window:
         self.stats = 0, 0, 0, 0
         self.paused = False
 
-        self.image = pygame.image.load('wastebasket.png')
+        self.image = pygame.image.load(os.path.join(os.path.dirname(__file__), 'wastebasket.png'))
         self.image = pygame.transform.scale(self.image, (40, 40))
 
 

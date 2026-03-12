@@ -12,7 +12,7 @@ VALUE_ITERATION = 1
 CONVEX_HULL_VI = 2 
 
 if __name__ == "__main__":
-    algorithm_used = VALUE_ITERATION
+    algorithm_used = Q_LEARNING
     weights = [1, 100, 10000]
     Test = True             # True: test policy after training/loading (applies to all algorithms)
 
@@ -20,7 +20,7 @@ if __name__ == "__main__":
     Calculate_hulls = True  # True: compute Q-hulls, False: extract policy from existing hulls
 
     # For Q_LEARNING and VALUE_ITERATION
-    Training = True        # True: train and save policy, False: load and test existing policy
+    Training = False        # True: train and save policy, False: load and test existing policy
 
     if algorithm_used == Q_LEARNING:
         train_policy_name = f"stochastic_policies/QL_stochastic_{weights[0]}-{weights[1]}-{weights[2]}-policy.npy"

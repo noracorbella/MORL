@@ -37,6 +37,8 @@ def q_learning(env, alpha=0.98, gamma=1.0, max_episodes=50000):
     policy = np.zeros([n_cells, n_cells, n_cells], dtype=int)
     visited_states = np.zeros([n_cells, n_cells, n_cells], dtype=bool)
 
+    weight_vect = np.array(env.weights) 
+
     max_epsilon = 1.0
     min_epsilon = 0.05
     decay_rate = 0.0005
@@ -72,7 +74,8 @@ def q_learning(env, alpha=0.98, gamma=1.0, max_episodes=50000):
             done = done_array[0]  # Extract boolean from array
 
             # Reward c + p1 + p2
-            reward_scalar = reward #np.sum(reward)
+            # reward_scalar = reward #np.sum(reward)
+            reward_scalar = np.dot(reward, weight_vect)
 
             # Q-learning update: Q(s,a) ← Q(s,a) + α[r + γ max_a' Q(s',a') - Q(s,a)]
             # alpha : estocasticitat
