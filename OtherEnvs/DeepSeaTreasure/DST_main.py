@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import sys
+import pickle
 import mo_gymnasium as mo_gym
 
 
@@ -16,10 +17,10 @@ if __name__ == "__main__":
 
     algorithm_used = VALUE_ITERATION # VALUE_ITERATION | CONVEX_HULL_VI
 
-    weights = [100, 1] # [w_treasure, w_time]
+    weights = [5, 1] # [w_treasure, w_time]
     Training = False # True: train and save policy, False: load policy
-    Calculate_hulls = True # For COVNEX_HULL_VI True: compute, False: extract from saved hulls
-    Test = True # True: visualise poolicy after training/loading
+    Calculate_hulls = False # For COVNEX_HULL_VI True: compute, False: extract from saved hulls
+    Test = False # True: visualise poolicy after training/loading
     Evaluate_policy = True #True: run evaluation
 
     discount_factor = 0.7
@@ -39,7 +40,8 @@ if __name__ == "__main__":
     from DST_Environment import DSTEnvironment
     from DST_VI import value_iteration
     from auxiliary_functions_dst import tester, example_execution
-    from CHVI_DST import convexhull_VI, extract_policy_for_weights, get_initial_state_hull
+    from DST_CHVI import convexhull_VI, extract_policy_for_weights, get_initial_state_hull
+    from DST_evaluate_policies import evaluate_policy
 
     PDIR = os.path.join(BASE_DIR, 'dst_policies')
     os.makedirs(PDIR, exist_ok=True)
@@ -49,13 +51,13 @@ if __name__ == "__main__":
 
 
     if algorithm_used == VALUE_ITERATION:
-        train_policy_name = os.path.join(PDIR, f"DST_VI_{weights[0]}-{weights[1]}-policy.npy")
-        test_policy_name = os.path.join(PDIR, f"DST_VI_{weights[0]}-{weights[1]}-policy.npy")
-        v_table_name = os.path.join(PDIR, f"DST_V_table_{weights[0]}-{weights[1]}.pkl")
+        train_policy_file = os.path.join(PDIR, f"DST_VI_{weights[0]}-{weights[1]}-policy.npy")
+        test_policy_file = os.path.join(PDIR, f"DST_VI_{weights[0]}-{weights[1]}-policy.npy")
+        v_table_file = os.path.join(PDIR, f"DST_V_table_{weights[0]}-{weights[1]}.pkl")
     
     elif algorithm_used == CONVEX_HULL_VI:
-        hulls_name = os.path.join(PDIR, f"DST_CHVI_qhulls.pkl")
-        chvi_policy_name = os.path.join(PDIR, f"DST_CHVI_{weights[0]}-{weights[1]}-policy.npy")
+        hulls_file = os.path.join(PDIR, f"DST_CHVI_qhulls.npy")
+        chvi_policy_file = os.path.join(PDIR, f"DST_CHVI_{weights[0]}-{weights[1]}-policy.npy")
 
 
 
@@ -70,10 +72,10 @@ if __name__ == "__main__":
             start_row, start_col = env.start_state
             print(f"Start state: row={start_row}, col={start_col}\n")
 
-            policy, q = value_iteration(env, theta=1.0, discount_factor=discount_factor, MNS_filename=MNS_VI, v_table_file=v_table_name)
+            policy, q = value_iteration(env, theta=1.0, discount_factor=discount_factor, MNS_filename=MNS_VI, v_table_file=v_table_file)
 
-            np.save(train_policy_name, policy)
-            print(f"Saved policy to {train_policy_name}\n")
+            np.save(train_policy_file, policy)
+            print(f"Saved policy to {train_policy_file}\n")
 
             print("-------------------")
             print("Finnished!!!")
@@ -83,11 +85,11 @@ if __name__ == "__main__":
         else:
             # Testing only
 
-            if train_policy_name != test_policy_name:
+            if train_policy_file != test_policy_file:
                 print("WARNING: Notice that the policy that will appear now is not the policy previously trained!!")
 
-            print(f"Loading policy from {test_policy_name}...\n")
-            policy = np.load(test_policy_name)
+            print(f"Loading policy from {test_policy_file}...\n")
+            policy = np.load(test_policy_file)
             print("Policy loaded successfully\n")
 
             env = DSTEnvironment(weights=weights)
@@ -96,18 +98,18 @@ if __name__ == "__main__":
         if Calculate_hulls:
             env = DSTEnvironment(weights=weights)
             q_hulls = convexhull_VI(env, theta=0.01, discount_factor=discount_factor)
-            policy = extract_policy_for_weights(q_hulls, env, env.n_actions)
-            np.save(hulls_name, q_hulls, allow_pickle=True)
-            np.save(chvi_policy_name, policy)
-            print(f"Saved Q-hulls to {hulls_name}")
-            print(f"Saved policy to {chvi_policy_name}")
+            policy = extract_policy_for_weights(q_hulls, weights, env, env.n_actions)
+            np.save(hulls_file, q_hulls, allow_pickle=True)
+            np.save(chvi_policy_file, policy)
+            print(f"Saved Q-hulls to {hulls_file}")
+            print(f"Saved policy to {chvi_policy_file}")
         else:
-            print(f"Loading Q-hulls from {hulls_name}...\n")
-            q_hulls = np.load(hulls_name, allow_pickle=True).item()
+            print(f"Loading Q-hulls from {hulls_file}...\n")
+            q_hulls = np.load(hulls_file, allow_pickle=True).item()
             env = DSTEnvironment(weights=weights)
             policy = extract_policy_for_weights(q_hulls, weights, env, env.n_actions)
-            np.save(chvi_policy_name, policy)
-            print(f"Saved policy to {chvi_policy_name}\n")        
+            np.save(chvi_policy_file, policy)
+            print(f"Saved policy to {chvi_policy_file}\n")        
     
      # -- Test --------------------------------------------------
     if Test:
@@ -119,87 +121,72 @@ if __name__ == "__main__":
 
     # -- Evaluate ----------------------------------------------
     if Evaluate_policy:
-            print(f"Episodes: {n_eval_episodes}, Max steps: {max_steps}, Discount: {discount_factor}")
-            policy = None
+        print("\nEvaluating policy...\n")
+        print(f"Episodes: {n_eval_episodes}, Max steps: {max_steps}, Discount: {discount_factor}")
+
+        if algorithm_used == CONVEX_HULL_VI:
+            try:
+                policy = np.load(chvi_policy_file)
+                print(f"\nLoaded existing CHVI policy from {chvi_policy_file}")
+            except FileNotFoundError:
+                print(f"\nERROR: Policy file not found: {chvi_policy_file}")
+                print("Run CHVI training first.")
+                exit(1)
+ 
             Q_hulls = None
+            try:
+                Q_hulls = np.load(hulls_file, allow_pickle=True).item()
+                print(f"Loaded Q-hulls from {hulls_file}")
+            except FileNotFoundError:
+                print(f"WARNING: Q-hulls file not found ({hulls_file}), skipping hull report.")
 
-            if algorithm_used == STOC_VALUE_ITERATION:
-                policy_file = os.path.join(PDIR, f"VI_stochastic_{w[0]}-{w[1]}-{w[2]}-policy.npy")
-                try:
-                    policy = np.load(policy_file)
-                    print(f"\nLoaded VI policy from {policy_file}")
-                except FileNotFoundError:
-                    print(f"\nERROR: Policy file not foungitd: {policy_file}")
-                    print("Run VI training first.")
-                    exit(1)
+            if Q_hulls is not None:
+                env_tmp = DSTEnvironment(weights=weights)
+                value_hull = get_initial_state_hull(Q_hulls, env_tmp, env_tmp.n_actions)
+                print(f"\n{'='*60}")
+                print("VALUE HULL AT INITIAL STATE")
+                print('='*60)
+                print(f"Initial state: {env_tmp.start_state}")
+                print(f"Number of vertices: {len(value_hull)}")
+                print(f"\nVertices (Pareto-optimal value vectors):")
+                print(f"  [  treasure ,    time   ]")
+                for v in value_hull:
+                    print(f"  [{v[0]:10.4f}, {v[1]:10.4f}]")
+                print(f"{'='*60}")
+                del env_tmp
 
-            elif algorithm_used == STOC_CONVEX_HULL_VI:
-                hulls_file       = os.path.join(PDIR, "CHVI_stochastic_qhulls.pkl")
-                chvi_policy_file = os.path.join(PDIR, f"CHVI_stochastic_{w[0]}-{w[1]}-{w[2]}-policy.npy")
-                try:
-                    policy = np.load(chvi_policy_file)
-                    print(f"\nLoaded existing CHVI policy from {chvi_policy_file}")
-                except FileNotFoundError:
-                    print(f"\nCHVI policy not found. Extracting from Q-hulls...")
-                    try:
-                        with open(hulls_file, 'rb') as f:
-                            Q_hulls = pickle.load(f)
-                        print(f"Loaded Q-hulls from {hulls_file}")
-                        env_temp = Environment(weights=weights)
-                        policy = extract_policy_for_weights(Q_hulls, weights, env_temp, env_temp.n_actions)
-                        np.save(chvi_policy_file, policy)
-                        print(f"Saved extracted policy to {chvi_policy_file}")
-                        del env_temp
-                    except FileNotFoundError:
-                        print(f"\nERROR: Q-hulls file not found: {hulls_file}")
-                        print("Run CHVI training first.")
-                        exit(1)
+        elif algorithm_used == VALUE_ITERATION:
+            try:
+                policy = np.load(train_policy_file)
+                print(f"\nLoaded VI policy from {train_policy_file}")
+            except FileNotFoundError:
+                print(f"\nERROR: Policy file not found: {train_policy_file}")
+                print("Run VI training first.")
+                exit(1)
 
-                if Q_hulls is None:
-                    try:
-                        with open(hulls_file, 'rb') as f:
-                            Q_hulls = pickle.load(f)
-                    except FileNotFoundError:
-                        Q_hulls = None
+        env = DSTEnvironment(weights=weights)
+        results = evaluate_policy(
+            env=env,
+            policy=policy,
+            n_eval_episodes=n_eval_episodes,
+            max_steps=max_steps,
+            discount_factor=discount_factor
+        )
 
-                if Q_hulls is not None:
-                    env = Environment(weights=weights)
-                    env.reset()
-                    initial_state = env.get_state()
-                    value_hull = get_initial_state_hull(Q_hulls, initial_state, env.n_actions)
-                    print(f"\n{'='*60}")
-                    print("VALUE HULL AT INITIAL STATE")
-                    print('='*60)
-                    print(f"Initial state: {initial_state}")
-                    print(f"Number of vertices: {len(value_hull)}")
-                    print(f"\nVertices (Pareto-optimal value vectors):")
-                    print(f"         [  r_car  ,  r_ped1 ,  r_ped2 ]")
-                    for v in value_hull:
-                        print(f"[{v[0]:8.4f}, {v[1]:8.4f}, {v[2]:8.4f}]")
-                    print('='*60)
-                    del env
+        print(f"\nNumber of episodes: {len(results['episode_returns'])}")
+        print(f"Mean episode length: {results['mean_length']:.2f}")
+        print(f"Weights: {weights}")
 
-            env = Environment(weights=weights)
-            results = evaluate_policy(
-                env=env,
-                policy=policy,
-                n_eval_episodes=n_eval_episodes,
-                max_steps=max_steps,
-                discount_factor=discount_factor
-            )
+        mean_vec = results['mean_return']
+        std_vec  = results['std_return']
+        print(f"\nMean discounted vector return:")
+        print(f"  [r_treasure, r_time] = [{mean_vec[0]:.4f}, {mean_vec[1]:.4f}]")
+        print(f"\nStd discounted vector return:")
+        print(f"  [r_treasure, r_time] = [{std_vec[0]:.4f}, {std_vec[1]:.4f}]")
 
-            print(f"\nNumber of episodes: {len(results['episode_returns'])}")
-            print(f"Mean episode length: {results['mean_length']:.2f}")
-            print(f"Weights: {weights}")
-
-            mean_vec = results['mean_return']
-            std_vec  = results['std_return']
-            print(f"\nMean discounted vector return:")
-            print(f"  [r_car, r_ped1, r_ped2] = [{mean_vec[0]:.4f}, {mean_vec[1]:.4f}, {mean_vec[2]:.4f}]")
-
-            if weights is not None:
-                weights_arr        = np.array(weights)
-                scalarised_mean    = np.dot(mean_vec, weights_arr)
-                scalarised_returns = np.dot(results['episode_returns'], weights_arr)
-                print(f"  Mean scalarised return: {scalarised_mean:.4f}")
-                print(f"  Std scalarised return:  {np.std(scalarised_returns):.4f}")
+        if weights is not None:
+            weights_arr        = np.array(weights)
+            scalarised_mean    = np.dot(mean_vec, weights_arr)
+            scalarised_returns = np.dot(results['episode_returns'], weights_arr)
+            print(f"  Mean scalarised return: {scalarised_mean:.4f}")
+            print(f"  Std scalarised return:  {np.std(scalarised_returns):.4f}")

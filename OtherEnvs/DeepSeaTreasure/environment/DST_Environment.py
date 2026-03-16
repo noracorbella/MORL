@@ -11,8 +11,6 @@ class DSTEnvironment:
     Rewards: [treasure_value, time_penalty]
     """
 
-    ACTION_NAMES = {0: "up", 1: "down", 2: "left", 3: "right"}
-
     def __init__(self, weights):
 
         self.weights = np.array(weights, dtype=float)

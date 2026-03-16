@@ -53,7 +53,7 @@ def value_iteration(env, theta=1.0, discount_factor=0.7, MNS_filename='dst_polic
     total_states = len(env.non_terminal_states)
     print(f"Valid states: {len(env.valid_states)}.")
     print(f"Non terminal states: {len(env.non_terminal_states)}")
-    print(f"Starting Value Iteration with {len(non_terminal_states)} states and {n_actions} actions")
+    print(f"Starting Value Iteration with {len(env.non_terminal_states)} states and {n_actions} actions")
     print(f"Total evaluations per iteration: {total_states * n_actions}")
 
     while True:
@@ -66,7 +66,7 @@ def value_iteration(env, theta=1.0, discount_factor=0.7, MNS_filename='dst_polic
             
             
             # Iterate through every possible state
-            for (row, col) in non_terminal_states:
+            for (row, col) in env.non_terminal_states:
 
                 v_old = V[row, col].copy()
 

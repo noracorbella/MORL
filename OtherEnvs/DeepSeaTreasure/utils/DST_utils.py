@@ -6,10 +6,6 @@ def navigate_to(env, target_row, target_col):
     Run original env.reset() from the DST environment (which resets to (0, 0))
     and navigate to (target_row, target_col) by going RIGHT until the correct column and 
     DOWN unitl the correct row.
-
-    :param env: raw mo_gymnasium environment
-    :param target_row: int
-    :param target_col: int
     """
     env.reset()
 
@@ -27,11 +23,6 @@ def navigate_to(env, target_row, target_col):
 def step_from(env, row, col, action):
        """
        Navigate to (row, col) and execute action from there.
-
-       :param env: raw mo_gymnasium environment
-       :param row: int
-       :param col: int
-       :param action: int (0=up, 1=down, 2=left, 3=right)
 
        :return: next_state (tuble), reward_vect (np.array), done (bool)
        """ 
