@@ -5,7 +5,7 @@ from tqdm import tqdm
 import pickle
 import mo_gymnasium as mo_gym
 
-def evaluate_policy(env, policy, n_eval_episodes=10, max_steps=50, discount_factor=0.7):
+def evaluate_policy(env, policy, n_eval_episodes=1, max_steps=200, discount_factor=0.7):
     """
     Evaluate the agent for ``n_eval_episodes`` episodes and returns average reward and std of reward.
     :param policy: Policy array 

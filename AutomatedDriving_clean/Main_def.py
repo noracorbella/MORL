@@ -30,7 +30,7 @@ if __name__ == "__main__":
 
     # -- Top-level choice --------------------------------------
                         
-    domain = STOCHASTIC     # DETERMINISTIC | STOCHASTIC | LEXICOGRAPHIC
+    domain = LEXICOGRAPHIC     # DETERMINISTIC | STOCHASTIC | LEXICOGRAPHIC
 
     # -- Deterministic settings --------------------------------
     det_algorithm       = DET_CONVEX_HULL_VI   # DET_Q_LEARNING | DET_VALUE_ITERATION | DET_CONVEX_HULL_VI
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     lex_algorithm       = LGVI_LEXHULL   # LGVI_LEXMAX | LGVI_LEXHULL
     lex_priority        = [2, 1, 0]         # priority order over [r_car, r_ped1, r_ped2]
     lex_Training        = False
-    lex_Test            = True
+    lex_Test            = False
     lex_Evaluate_policy = True
     lex_n_eval_episodes = 10000
     lex_max_steps       = 200
@@ -446,6 +446,8 @@ if __name__ == "__main__":
                       f"{theoretical_value[1]:.4f}, {theoretical_value[2]:.4f}")
                 if algorithm_used == LGVI_LEXHULL and value_hull is not None:
                     print(f"Hull size at initial state: {len(value_hull)} vertices")
+                    for v in value_hull:
+                        print(f"[{v[0]:8.4f}, {v[1]:8.4f}, {v[2]:8.4f}]")
 
             print(f"\nEVALUATE POLICY RESULTS")
             print(f"Number of episodes: {len(results['episode_returns'])}")

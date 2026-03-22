@@ -74,8 +74,6 @@ if __name__ == "__main__":
             MNS_filename=MNS_FILE,
         )
 
-        t_run_end = time.time()
-
         run_times[label] = time.time() - t_run_start
         print(f"Elapsed time for {label}: {run_times[label]:.3f}")
 

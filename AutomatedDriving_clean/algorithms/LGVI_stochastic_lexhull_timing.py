@@ -4,6 +4,7 @@ from LG_utils import lex_hull_corrected, generate_all_priority_orders, lex_max
 from CH_operations import get_hull, translate_hull, sum_hulls, max_q_value
 import os
 import pickle
+import time
 
 def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7, MNS_filename='lexicographic_policies/LGVI_lexhull_MNS.pkl', v_hulls_file=None, q_hulls_file=None):    
     """
@@ -58,6 +59,9 @@ def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7, MNS_filename='lexicograph
 
     print(f"Starting Lexicographic Hull Value Iteration with lexhull")
     print(f"Total states: {total_states}, Actions: {n_actions}, Objectives: {n_objectives}")
+
+    t_start = time.time()
+    t_model_done = None # set at end of iteration 1
 
     while True:
         iteration += 1
@@ -203,8 +207,12 @@ def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7, MNS_filename='lexicograph
         print(f"Delta = {round(delta, 3)}, Theta = {theta}")
         print(f"Average hull size: {avg_hull_size:.2f} vertices per state")
 
+        if iteration == 1:
+            t_model_done = time.time()
+
         if delta < theta:
             print(f"\nConverged in {iteration} iterations")
+            t_vi_done = time.time()
             break
 
     # Save model
@@ -225,10 +233,12 @@ def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7, MNS_filename='lexicograph
     print("\nExtracting policies for all lexicographic orders...")
     all_priority_orders = generate_all_priority_orders(n_objectives)
     policies = {}
+    extraction_times = {}
 
     for priority_order in all_priority_orders:
         priority_tuple = tuple(priority_order)
         policy = np.zeros([n_cells, n_cells, n_cells], dtype=int)
+        t_policy_start = time.time()
 
         for c in env.states_agent_left:
             for p1 in env.states_agent_right:
@@ -247,12 +257,22 @@ def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7, MNS_filename='lexicograph
                     # Find best action for this priority
                     best_action = lex_max(q_vectors, priority=list(priority_order))
                     policy[c, p1, p2] = best_action
-
+        
+        extraction_times[priority_tuple] = time.time() - t_policy_start
         policies[priority_tuple] = policy
         print(f"  Extracted policy for priority order {priority_order}")
+    
+    t_extract_done = time.time()
 
-    return policies, Q_hulls
+    timing = {
+        "model_build":       t_model_done - t_start,
+        "remaining_vi":      t_vi_done    - t_model_done,
+        "policy_extraction": t_extract_done - t_vi_done,
+        "total":             t_extract_done - t_start,
+        "extraction_times":  extraction_times,
+    }
 
+    return policies, Q_hulls, timing
 
 
 def get_initial_state_hull(Q_hulls, initial_state_indices, n_actions):

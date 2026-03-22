@@ -7,7 +7,7 @@ import time
 import numpy as np
 import mo_gymnasium as mo_gym
 
-def example_execution(env, policy, render=False):
+def example_execution(env, policy, render=False, n_test_episodes=5):
     """
     Simulation of the Deep Sea Treasure environment without learning.
 
@@ -18,7 +18,7 @@ def example_execution(env, policy, render=False):
     max_timesteps = 50
     action_names = {0: "UP", 1: "DOWN", 2: "LEFT", 3: "RIGHT"}
 
-    for episode in range(2):
+    for episode in range(n_test_episodes):
         print(f"Episode {episode + 1}")
 
         obs, info = env.reset()

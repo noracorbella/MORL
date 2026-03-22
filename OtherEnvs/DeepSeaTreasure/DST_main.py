@@ -7,6 +7,8 @@ import mo_gymnasium as mo_gym
 
 VALUE_ITERATION = 0
 CONVEX_HULL_VI = 1
+LGVI_LEXMAX = 2
+LGVI_LEXHULL = 3
 
 
 if __name__ == "__main__":
@@ -15,17 +17,23 @@ if __name__ == "__main__":
     # CONFIGURATION
     # ##############################################################
 
-    algorithm_used = VALUE_ITERATION # VALUE_ITERATION | CONVEX_HULL_VI
+    algorithm_used = LGVI_LEXHULL # VALUE_ITERATION | CONVEX_HULL_VI | LGVI_LEXMAX | LGVI_LEXHULL
 
-    weights = [5, 1] # [w_treasure, w_time]
-    Training = False # True: train and save policy, False: load policy
-    Calculate_hulls = False # For COVNEX_HULL_VI True: compute, False: extract from saved hulls
-    Test = False # True: visualise poolicy after training/loading
-    Evaluate_policy = True #True: run evaluation
-
-    discount_factor = 0.7
-    n_eval_episodes = 100
-    max_steps = 50
+    # -- VI and CHVI settings ----------------------------------
+    weights             = [1000, 1] # [w_treasure, w_time]
+    Training            = False  # True: train and save policy, False: load policy
+    Calculate_hulls     = False  # For COVNEX_HULL_VI True: compute, False: extract from saved hulls
+    
+    # -- Lexicographic settings --------------------------------
+    priority         = [1, 0] 
+    lex_Training     = False
+    
+    # -- Shared settings ---------------------------------------
+    Test            = False # True: visualise poolicy after training/loading
+    Evaluate_policy = True  # True: run evaluation
+    discount_factor = 0.99
+    n_eval_episodes = 1
+    max_steps = 200
 
     # ##############################################################
     # EXECUTION
@@ -42,12 +50,16 @@ if __name__ == "__main__":
     from auxiliary_functions_dst import tester, example_execution
     from DST_CHVI import convexhull_VI, extract_policy_for_weights, get_initial_state_hull
     from DST_evaluate_policies import evaluate_policy
+    from DST_LGVI_lexmax import LG_VI_lexmax
+    from DST_LGVI_lexhull import LG_VI_lexhull, get_initial_state_hull as get_initial_state_hull_lex
 
     PDIR = os.path.join(BASE_DIR, 'dst_policies')
     os.makedirs(PDIR, exist_ok=True)
  
     MNS_VI   = os.path.join(PDIR, 'DST_VI_MNS.pkl')
-    MNS_CHVI = os.path.join(PDIR, 'CHVI_DST_MNS.pkl')
+    MNS_CHVI = os.path.join(PDIR, 'DST_CHVI_MNS.pkl')
+    MNS_LEXMAX = os.path.join(PDIR, 'DST_LGVI_lexmax_MNS.pkl')
+    MNS_LEXHULL = os.path.join(PDIR, 'DST_LGVI_lexhull_MNS.pkl')
 
 
     if algorithm_used == VALUE_ITERATION:
@@ -58,6 +70,16 @@ if __name__ == "__main__":
     elif algorithm_used == CONVEX_HULL_VI:
         hulls_file = os.path.join(PDIR, f"DST_CHVI_qhulls.npy")
         chvi_policy_file = os.path.join(PDIR, f"DST_CHVI_{weights[0]}-{weights[1]}-policy.npy")
+
+    elif algorithm_used == LGVI_LEXMAX:
+        train_policy_file = os.path.join(PDIR, f"DST_LGVI_lexmax_{priority[0]}-{priority[1]}_policy.npy")
+        test_policy_file  = os.path.join(PDIR, f"DST_LGVI_lexmax_{priority[0]}-{priority[1]}_policy.npy")
+        v_table_file      = os.path.join(PDIR, f"DST_LGVI_lexmax_{priority[0]}-{priority[1]}_V_table.pkl")
+
+    elif algorithm_used == LGVI_LEXHULL:
+        test_policy_file  = os.path.join(PDIR, f"DST_LGVI_lexhull_{priority[0]}-{priority[1]}_policy.npy")
+        v_hulls_file      = os.path.join(PDIR, f"DST_LGVI_lexhull_{priority[0]}-{priority[1]}_V_hulls.pkl")
+        q_hulls_file      = os.path.join(PDIR, f"DST_LGVI_lexhull_{priority[0]}-{priority[1]}_q_hulls.pkl")
 
 
 
@@ -111,11 +133,57 @@ if __name__ == "__main__":
             np.save(chvi_policy_file, policy)
             print(f"Saved policy to {chvi_policy_file}\n")        
     
+    elif algorithm_used == LGVI_LEXMAX:
+        if lex_Training:
+            print("Training Lexicographic Value Iteration (lexmax)")
+            print(f"Priority order: {priority}\n")
+            env = DSTEnvironment(weights=None)
+            policy, Q = LG_VI_lexmax(
+                env,
+                theta=1,
+                discount_factor=discount_factor,
+                priority=priority,
+                MNS_filename=MNS_LEXMAX,
+                v_table_file=v_table_file
+            )
+            np.save(train_policy_file, policy)
+            print(f"Saved policy to {train_policy_file}\n")
+            print("-------------------\nFinished!!!")
+        else:
+            print(f"Loading policy from {test_policy_file}...")
+            policy = np.load(test_policy_file)
+            print("Policy loaded succesfully\n")
+            env = DSTEnvironment(weights=None)
+
+    elif algorithm_used == LGVI_LEXHULL:
+        if lex_Training:
+            print("Training Lexicographic Value Iteration (lexhull)")
+            env = DSTEnvironment(weights=None)
+            policies, Q_hulls = LG_VI_lexhull(
+                env,
+                theta=1.0,
+                discount_factor=discount_factor,
+                MNS_filename=MNS_LEXHULL,
+                v_hulls_file=v_hulls_file,
+                q_hulls_file=q_hulls_file,
+            )
+            for priority_tuple, pol in policies.items():
+                policy_name  = os.path.join(PDIR, f"DST_LGVI_lexhull_{priority_tuple[0]}-{priority_tuple[1]}_policy.npy")
+                np.save(policy_name, pol)
+                print(f"Saved policy for priority {list(priority_tuple)}")
+            print("\n-------------------\nFinished!!!")
+            policy = policies[tuple(priority)]
+        else:
+            print(f"Loading policy from {test_policy_file}...")
+            policy = np.load(test_policy_file)
+            print("Policy loaded successfully\n")
+            env = DSTEnvironment(weights=None)
+
      # -- Test --------------------------------------------------
     if Test:
         print("\nTesting policy...\n")
         render_env = mo_gym.make("deep-sea-treasure-v0", render_mode="human")
-        example_execution(render_env, policy, render=True)
+        example_execution(render_env, policy, render=True, n_test_episodes=2)
 
     
 
@@ -163,6 +231,58 @@ if __name__ == "__main__":
                 print(f"\nERROR: Policy file not found: {train_policy_file}")
                 print("Run VI training first.")
                 exit(1)
+        
+        elif algorithm_used == LGVI_LEXMAX:
+            try:
+                policy = np.load(train_policy_file)
+                print(f"\nLoaded lexmax policy from {train_policy_file}")
+            except FileNotFoundError:
+                print(f"\nERROR: Policy file not found: {train_policy_file}")
+                print("Run lexmax training first.")
+                exit(1)
+            env_tmp = DSTEnvironment(weights=None)
+            try:
+                with open(v_table_file, 'rb') as f:
+                    V = pickle.load(f)
+                row, col = env_tmp.start_state
+            except FileNotFoundError:
+                pass
+            del env_tmp
+        
+        elif algorithm_used == LGVI_LEXHULL:
+            try:
+                policy = np.load(test_policy_file)
+                print(f"\nLoaded lexhull policy from {test_policy_file}")
+            except FileNotFoundError:
+                print(f"\nERROR: Policy file not found: {test_policy_file}")
+                print("Run lexhull training first.")
+                exit(1)
+            
+            Q_hulls = None
+            try:
+                with open(q_hulls_file, 'rb') as f:
+                    Q_hulls = pickle.load(f)
+                print(f"Loaded Q-hulls from {q_hulls_file}")
+            except FileNotFoundError:
+                print(f"WARNING: Q-hulls file not found ({q_hulls_file}), skipping hull report.")
+
+            if Q_hulls is not None:
+                env_tmp    = DSTEnvironment(weights=None)
+                value_hull = get_initial_state_hull_lex(Q_hulls, env_tmp, env_tmp.n_actions)
+                print(f"\n{'='*60}")
+                print("VALUE HULL AT INITIAL STATE")
+                print(f"{'='*60}")
+                print(f"Initial state: {env_tmp.start_state}")
+                print(f"Number of vertices: {len(value_hull)}")
+                print(f"\nVertices (lex-optimal value vectors):")
+                print(f"  [  treasure ,    time   ]")
+                for v in value_hull:
+                    print(f"  [{v[0]:10.4f}, {v[1]:10.4f}]")
+                print(f"{'='*60}")
+                del env_tmp
+
+
+
 
         env = DSTEnvironment(weights=weights)
         results = evaluate_policy(
@@ -175,7 +295,7 @@ if __name__ == "__main__":
 
         print(f"\nNumber of episodes: {len(results['episode_returns'])}")
         print(f"Mean episode length: {results['mean_length']:.2f}")
-        print(f"Weights: {weights}")
+        
 
         mean_vec = results['mean_return']
         std_vec  = results['std_return']
@@ -185,6 +305,7 @@ if __name__ == "__main__":
         print(f"  [r_treasure, r_time] = [{std_vec[0]:.4f}, {std_vec[1]:.4f}]")
 
         if weights is not None:
+            print(f"Weights: {weights}")
             weights_arr        = np.array(weights)
             scalarised_mean    = np.dot(mean_vec, weights_arr)
             scalarised_returns = np.dot(results['episode_returns'], weights_arr)
