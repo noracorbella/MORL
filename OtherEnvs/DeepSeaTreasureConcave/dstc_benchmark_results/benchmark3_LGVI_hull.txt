@@ -1,0 +1,9 @@
+BENCHMARK 3: Lexicographic Hull VI + Extract 2 Policies
+------------------------------------------------------------
+Iteration 1 (model build + first VI sweep): 0.070 s
+Remaining iterations: 0.260 s
+Policy extraction: 0.010 s
+  [0, 1]: 0.004 s
+  [1, 0]: 0.003 s
+
+TOTAL TIME: 0.341 s
