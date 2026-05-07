@@ -30,7 +30,7 @@ if __name__ == "__main__":
 
     # -- Top-level choice --------------------------------------
                         
-    domain = LEXICOGRAPHIC     # DETERMINISTIC | STOCHASTIC | LEXICOGRAPHIC
+    domain = STOCHASTIC     # DETERMINISTIC | STOCHASTIC | LEXICOGRAPHIC
 
     # -- Deterministic settings --------------------------------
     det_algorithm       = DET_CONVEX_HULL_VI   # DET_Q_LEARNING | DET_VALUE_ITERATION | DET_CONVEX_HULL_VI
@@ -42,10 +42,10 @@ if __name__ == "__main__":
     # -- Stochastic settings -----------------------------------
     stoc_algorithm       = STOC_CONVEX_HULL_VI  # STOC_VALUE_ITERATION | STOC_CONVEX_HULL_VI
     stoc_weights         = [1, 100, 10000]
-    stoc_Training        = 0
-    stoc_Calculate_hulls = 0
-    stoc_Test            = 0
-    stoc_Evaluate_policy = 1
+    stoc_Training        = False
+    stoc_Calculate_hulls = False
+    stoc_Test            = False
+    stoc_Evaluate_policy = True
     stoc_n_eval_episodes = 10000
     stoc_max_steps       = 200
     stoc_discount_factor = 0.7

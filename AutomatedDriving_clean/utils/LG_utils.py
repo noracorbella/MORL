@@ -89,7 +89,7 @@ def lex_hull(q_vectors, n_objectives=3, tol=1e-9):
     
     return lex_optimal_actions
 
-def lex_hull_corrected(q_vectors, n_objectives=3, tol=1e-9):
+def lex_hull_corrected(q_vectors, n_objectives=3, tol=1e-9, priority_orders=None):
     """
     Calculate lexicographic hull: keep only q-vectors that are lexicographically 
     optimal for at least one priority order.
@@ -103,7 +103,8 @@ def lex_hull_corrected(q_vectors, n_objectives=3, tol=1e-9):
         Dictionary mapping priority orders (as tuples) to their optimal action indices
         Set of action indices that are optimal for at least one priority order
     """
-    priority_orders = generate_all_priority_orders(n_objectives)
+    if priority_orders is None:
+        priority_orders = generate_all_priority_orders(n_objectives)
     
     lex_optimal_actions = {}
     optimal_action_set = set()  # Track which actions are optimal for ANY order
@@ -115,6 +116,24 @@ def lex_hull_corrected(q_vectors, n_objectives=3, tol=1e-9):
         optimal_action_set.add(best_action)
     
     return lex_optimal_actions, optimal_action_set
+
+
+def lex_hull_corrected_fast(priority_orders, q_vectors, tol=1e-9):
+    """
+    Same as lex_hull_corrected but accepts precomputed priority orders
+    instead of generating them internally. Call generate_all_priority_orders
+    once before the training loop and reuse here.
+    """
+    
+    lex_optimal_actions = {}
+    optimal_action_set = set()  # Track which actions are optimal for ANY order
+    
+    for order in priority_orders:
+        best_action = lex_max(q_vectors, priority=order, tol=tol)
+        lex_optimal_actions[tuple(order)] = best_action
+        optimal_action_set.add(best_action)
+    return lex_optimal_actions, optimal_action_set
+
 
 def extract_lex_policy_from_qhulls(Q_hulls, priority, env, n_actions):
     """

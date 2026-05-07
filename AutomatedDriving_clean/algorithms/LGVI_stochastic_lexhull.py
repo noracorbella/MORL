@@ -59,6 +59,7 @@ def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7, MNS_filename='lexicograph
     print(f"Starting Lexicographic Hull Value Iteration with lexhull")
     print(f"Total states: {total_states}, Actions: {n_actions}, Objectives: {n_objectives}")
 
+    all_priority_orders = generate_all_priority_orders(n_objectives)
     while True:
         iteration += 1
         print(f"\nIteration {iteration}")
@@ -158,7 +159,7 @@ def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7, MNS_filename='lexicograph
                                 new_q_hull = np.array(new_q_hull)
 
                             if len(new_q_hull) > 1:
-                                _, optimal_indices = lex_hull_corrected(new_q_hull, n_objectives=n_objectives)
+                                _, optimal_indices = lex_hull_corrected(new_q_hull, priority_orders=all_priority_orders)
                                 new_q_hull = new_q_hull[list(optimal_indices)]
 
                             Q_hulls[(c, p1, p2, action)] = new_q_hull
@@ -174,7 +175,7 @@ def LG_VI_lexhull(env, theta=1.0, discount_factor=0.7, MNS_filename='lexicograph
                         all_q_vectors = np.array(all_q_vectors)
 
                         if len(all_q_vectors) > 1:
-                            _, optimal_indices = lex_hull_corrected(all_q_vectors, n_objectives=n_objectives)
+                            _, optimal_indices = lex_hull_corrected(all_q_vectors, priority_orders=all_priority_orders)
                             new_V = all_q_vectors[list(optimal_indices)]
                         else:
                             new_V = all_q_vectors

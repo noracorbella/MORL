@@ -49,9 +49,9 @@ if __name__ == "__main__":
     from DST_VI import value_iteration
     from auxiliary_functions_dst import tester, example_execution
     from DST_CHVI import convexhull_VI, extract_policy_for_weights, get_initial_state_hull
-    from DST_evaluate_policies import evaluate_policy
     from DST_LGVI_lexmax import LG_VI_lexmax
     from DST_LGVI_lexhull import LG_VI_lexhull, get_initial_state_hull as get_initial_state_hull_lex
+    from DST_evaluate_policies import evaluate_policy
 
     PDIR = os.path.join(BASE_DIR, 'dst_policies')
     os.makedirs(PDIR, exist_ok=True)

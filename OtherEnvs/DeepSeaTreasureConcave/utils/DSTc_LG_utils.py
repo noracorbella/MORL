@@ -87,7 +87,7 @@ def lex_hull(env, q_vectors, tol=1e-9):
     
     return lex_optimal_actions
 
-def lex_hull_corrected(env, q_vectors, tol=1e-9):
+def lex_hull_corrected(env, q_vectors, tol=1e-9, priority_orders=None):
     """
     Calculate lexicographic hull: keep only q-vectors that are lexicographically 
     optimal for at least one priority order.
@@ -102,7 +102,8 @@ def lex_hull_corrected(env, q_vectors, tol=1e-9):
         Set of action indices that are optimal for at least one priority order
     """
     n_objectives = env.n_rewards
-    priority_orders = generate_all_priority_orders(n_objectives)
+    if priority_orders is None:
+        priority_orders = generate_all_priority_orders(n_objectives)
     
     lex_optimal_actions = {}
     optimal_action_set = set()  # Track which actions are optimal for ANY order
