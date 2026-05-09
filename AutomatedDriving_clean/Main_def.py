@@ -30,7 +30,7 @@ if __name__ == "__main__":
 
     # -- Top-level choice --------------------------------------
                         
-    domain = STOCHASTIC     # DETERMINISTIC | STOCHASTIC | LEXICOGRAPHIC
+    domain = LEXICOGRAPHIC     # DETERMINISTIC | STOCHASTIC | LEXICOGRAPHIC
 
     # -- Deterministic settings --------------------------------
     det_algorithm       = DET_CONVEX_HULL_VI   # DET_Q_LEARNING | DET_VALUE_ITERATION | DET_CONVEX_HULL_VI
@@ -40,25 +40,29 @@ if __name__ == "__main__":
     det_Test            = True   # True: visualise policy after training/loading.
 
     # -- Stochastic settings -----------------------------------
-    stoc_algorithm       = STOC_CONVEX_HULL_VI  # STOC_VALUE_ITERATION | STOC_CONVEX_HULL_VI
+    stoc_algorithm       = STOC_VALUE_ITERATION  # STOC_VALUE_ITERATION | STOC_CONVEX_HULL_VI
     stoc_weights         = [1, 100, 10000]
-    stoc_Training        = False
-    stoc_Calculate_hulls = False
+    stoc_Training        = True
+    stoc_Calculate_hulls = True
     stoc_Test            = False
-    stoc_Evaluate_policy = True
+    stoc_Evaluate_policy = False
     stoc_n_eval_episodes = 10000
     stoc_max_steps       = 200
     stoc_discount_factor = 0.7
 
     # -- Lexicographic settings --------------------------------
-    lex_algorithm       = LGVI_LEXHULL   # LGVI_LEXMAX | LGVI_LEXHULL
+    lex_algorithm       = LGVI_LEXMAX   # LGVI_LEXMAX | LGVI_LEXHULL
     lex_priority        = [2, 1, 0]         # priority order over [r_car, r_ped1, r_ped2]
     lex_Training        = False
     lex_Test            = False
-    lex_Evaluate_policy = True
+    lex_Evaluate_policy = False
     lex_n_eval_episodes = 10000
     lex_max_steps       = 200
     lex_discount_factor = 0.7
+
+
+    if domain == STOCHASTIC or domain == LEXICOGRAPHIC:
+        Load_V_at_initial_state = True
 
     # ##############################################################
     # EXECUTION
@@ -459,3 +463,98 @@ if __name__ == "__main__":
             print(f"  [r_car, r_ped1, r_ped2] = [{mean_vec[0]:.4f}, {mean_vec[1]:.4f}, {mean_vec[2]:.4f}]")
             print(f"\nStd discounted vector return:")
             print(f"  [r_car, r_ped1, r_ped2] = [{std_vec[0]:.4f}, {std_vec[1]:.4f}, {std_vec[2]:.4f}]")
+
+
+    # ##############################################################
+    # LOAD V AT INITIAL STATE
+    # ##############################################################
+    # Loads a V-table / V-hulls file and reports the vector value
+    # at the initial state. For hull-based files, selects the vertex
+    # corresponding to the given weights (CHVI) or priority (LexHull).
+    # ##############################################################
+
+    if Load_V_at_initial_state:
+        print(f"\n{'='*60}")
+        print("THEORETICAL VALUE AT INITIAL STATE (loaded from file)")
+        print(f"{'='*60}")
+
+        load_weights  = weights  if domain == STOCHASTIC    else None
+        load_priority = priority if domain == LEXICOGRAPHIC else None
+
+        load_file = None
+        if domain == STOCHASTIC:
+            if algorithm_used == STOC_VALUE_ITERATION:
+                load_file = os.path.join(PDIR,f"V_table_stochastic_{w[0]}-{w[1]}-{w[2]}_vec.pkl")
+            elif algorithm_used == STOC_CONVEX_HULL_VI:
+                load_file = os.path.join(PDIR, "CHVI_stochastic_vhulls.pkl")
+        elif domain == LEXICOGRAPHIC:
+            if algorithm_used == LGVI_LEXMAX:
+                load_file = os.path.join(PDIR,f"LGVI_lexmax_{priority_str}_V_table.pkl")
+            elif algorithm_used == LGVI_LEXHULL:
+                load_file = os.path.join(PDIR, "LGVI_lexhull_V_hulls.pkl")
+
+        env_load = Environment(weights=load_weights)
+        env_load.reset()
+        s0 = tuple(env_load.get_state())
+
+        try:
+            with open(load_file, 'rb') as f:
+                data = pickle.load(f)
+        except FileNotFoundError:
+            print(f"ERROR: file not found: {load_file}")
+            data = None
+
+        if data is not None:
+            fname = os.path.basename(load_file)
+            V_s0  = None
+
+            # ---------- VI: vector V table (numpy array) --------------
+            if "V_table_stochastic" in fname and "_vec" in fname:
+                V_s0 = np.asarray(data[s0])
+                print(f"File         : {fname}")
+                print(f"Algorithm    : VI (vector)")
+                print(f"Weights      : {load_weights}")
+                print(f"Initial state: {s0}")
+
+            # ---------- LexMax: vector V table ------------------------
+            elif "LGVI_lexmax" in fname and "V_table" in fname:
+                V_s0 = np.asarray(data[s0])
+                print(f"File         : {fname}")
+                print(f"Algorithm    : LexMax")
+                print(f"Priority     : {load_priority}")
+                print(f"Initial state: {s0}")
+
+            # ---------- CHVI: V-hulls dict ----------------------------
+            elif "CHVI_stochastic_vhulls" in fname:
+                value_hull = np.asarray(data[s0])
+                w_arr      = np.array(load_weights, dtype=float)
+                scalarised = value_hull @ w_arr
+                V_s0       = value_hull[int(np.argmax(scalarised))]
+                print(f"File         : {fname}")
+                print(f"Algorithm    : CHVI")
+                print(f"Weights      : {load_weights}")
+                print(f"Initial state: {s0}")
+                print(f"Hull size    : {len(value_hull)} vertices")
+
+            # ---------- LexHull: V-hulls dict -------------------------
+            elif "LGVI_lexhull_V_hulls" in fname:
+                value_hull = np.asarray(data[s0])
+                ordered    = value_hull[:, load_priority]
+                idx        = int(np.lexsort(ordered.T[::-1])[-1])
+                V_s0       = value_hull[idx]
+                print(f"File         : {fname}")
+                print(f"Algorithm    : LexHull")
+                print(f"Priority     : {load_priority}")
+                print(f"Initial state: {s0}")
+                print(f"Hull size    : {len(value_hull)} vertices")
+
+
+            else:
+                print(f"ERROR: could not infer algorithm from filename '{fname}'")
+
+            if V_s0 is not None:
+                    print(f"V(s0)        : [r_car, r_ped1, r_ped2] = "
+                          f"[{V_s0[0]:.4f}, {V_s0[1]:.4f}, {V_s0[2]:.4f}]")
+
+        print(f"{'='*60}")
+        del env_load

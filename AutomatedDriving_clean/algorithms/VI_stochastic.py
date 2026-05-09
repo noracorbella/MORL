@@ -23,10 +23,15 @@ def value_iteration(env, theta=1.0, discount_factor=0.7, MNS_filename='stochasti
     # Initialize value function and policy
     n_cells = env.map_num_cells
     n_actions = env.n_actions
+    n_rewards = 3
 
     V = np.zeros([n_cells, n_cells, n_cells])  # V table: each entry represents how good is it to be in this state
     policy = np.zeros([n_cells, n_cells, n_cells], dtype=int)  # For each state, which action should we take?
     Q = np.zeros([n_cells, n_cells, n_cells, n_actions])  # For each state-action pair, what's the expected total reward?
+
+    V_vec  = np.zeros([n_cells, n_cells, n_cells, n_rewards])              # V table (vector)
+    Q_vec  = np.zeros([n_cells, n_cells, n_cells, n_actions, n_rewards])   # vector Q table
+
 
     pedestrian_stochastic_actions = env.agents[1].move_map[3][3]
     stochastic_state = [3, 3]
@@ -64,6 +69,8 @@ def value_iteration(env, theta=1.0, discount_factor=0.7, MNS_filename='stochasti
                         v_old = V[c, p1, p2].copy()
 
                         q_values = np.zeros(n_actions)
+                        q_vectors = np.zeros((n_actions, n_rewards))
+
 
                         p1_is_stochastic = np.array_equal(state_translated[1], stochastic_state)
                         p2_is_stochastic = np.array_equal(state_translated[2], stochastic_state)
@@ -114,15 +121,20 @@ def value_iteration(env, theta=1.0, discount_factor=0.7, MNS_filename='stochasti
                                 outcomes = model_next_state[(c, p1, p2, action)]
 
                             q_value = 0.0
+                            q_vector = np.zeros(n_rewards)
 
                             for next_state, reward_vect, done, prob in outcomes:
+                                reward_vect = np.asarray(reward_vect, dtype=float)
                                 reward_scalar = np.dot(reward_vect, weight_vect)
 
                                 if done:
                                     q_value += prob * reward_scalar
+                                    q_vector += prob * reward_vect
                                 else:
                                     next_value = V[next_state[0], next_state[1], next_state[2]]
+                                    next_value_vect = V_vec[next_state[0], next_state[1], next_state[2]]
                                     q_value += prob * (reward_scalar + discount_factor * next_value)
+                                    q_vector += prob * (reward_vect + discount_factor * next_value_vect)
                             
                             if not isinstance(q_value, (int, float, np.floating)):
                                 print(f"ERROR DEBUG:")
@@ -132,12 +144,17 @@ def value_iteration(env, theta=1.0, discount_factor=0.7, MNS_filename='stochasti
                                 print(f"  outcomes: {outcomes}")
                             
                             q_values[action] = q_value
+                            q_vectors[action] = q_vector
 
                         # Store Q-values for this state
+                        best_action = int(np.argmax(q_values))
                         Q[c, p1, p2] = q_values
+                        Q_vec[c, p1, p2] = q_vectors
+                        
 
                         # Update value function: V(s) = max_a Q(s,a)
                         V[c, p1, p2] = np.max(q_values)
+                        V_vec[c, p1, p2] = q_vectors[best_action]
 
                         # Update delta - maximum change in value function
                         delta = max(delta, np.abs(v_old - V[c, p1, p2]))
@@ -162,6 +179,11 @@ def value_iteration(env, theta=1.0, discount_factor=0.7, MNS_filename='stochasti
         print(f"Saving V table to {v_table_file}...")
         with open(v_table_file, 'wb') as f:
             pickle.dump(V, f)
+        
+        v_vec_file = v_table_file.replace('.pkl', '_vec.pkl')
+        with open(v_vec_file, 'wb') as f:
+            pickle.dump(V_vec, f)
+        print(f"V table (vector) saved to {v_vec_file}")
 
     # Extract policy: for each state, choose action with best Q-value
     print("\nExtracting policy...")

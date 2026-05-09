@@ -205,6 +205,11 @@ def convexhull_VI(env, theta=0.01, discount_factor=0.7, MNS_filename='stochastic
         print(f"Saving Q_hulls to {q_hulls_file}...")
         with open(q_hulls_file, 'wb') as f:
             pickle.dump(Q_hulls, f)
+
+        v_hulls_file = q_hulls_file.replace('qhulls', 'vhulls')
+        with open(v_hulls_file, 'wb') as f:
+            pickle.dump(V, f)
+        print(f"V_hulls saved to {v_hulls_file}")
     
     return Q_hulls
 
