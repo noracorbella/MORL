@@ -30,10 +30,10 @@ if __name__ == "__main__":
 
     # -- Top-level choice --------------------------------------
                         
-    domain = LEXICOGRAPHIC     # DETERMINISTIC | STOCHASTIC | LEXICOGRAPHIC
+    domain = STOCHASTIC     # DETERMINISTIC | STOCHASTIC | LEXICOGRAPHIC
 
     # -- Deterministic settings --------------------------------
-    det_algorithm       = DET_CONVEX_HULL_VI   # DET_Q_LEARNING | DET_VALUE_ITERATION | DET_CONVEX_HULL_VI
+    det_algorithm       = DET_VALUE_ITERATION   # DET_Q_LEARNING | DET_VALUE_ITERATION | DET_CONVEX_HULL_VI
     det_weights         = [1, 10, 100]
     det_Training        = True   # True: train and save. False: load existing policy.
     det_Calculate_hulls = True   # (CONVEX_HULL_VI only) True: compute. False: extract from saved hulls.
@@ -41,19 +41,21 @@ if __name__ == "__main__":
 
     # -- Stochastic settings -----------------------------------
     stoc_algorithm       = STOC_VALUE_ITERATION  # STOC_VALUE_ITERATION | STOC_CONVEX_HULL_VI
-    stoc_weights         = [1, 100, 10000]
+    stoc_weights         = [10000, 100, 1]
     stoc_Training        = True
-    stoc_Calculate_hulls = True
+    stoc_Calculate_hulls = False
     stoc_Test            = False
-    stoc_Evaluate_policy = False
+    stoc_Evaluate_policy = True
     stoc_n_eval_episodes = 10000
     stoc_max_steps       = 200
     stoc_discount_factor = 0.7
+    theta = 0.01
 
     # -- Lexicographic settings --------------------------------
     lex_algorithm       = LGVI_LEXMAX   # LGVI_LEXMAX | LGVI_LEXHULL
-    lex_priority        = [2, 1, 0]         # priority order over [r_car, r_ped1, r_ped2]
-    lex_Training        = False
+    lex_priority        = [0, 2, 1]         # priority order over [r_car, r_ped1, r_ped2]
+    lex_Training        = True
+    lex_Calculate_lexhulls = False
     lex_Test            = False
     lex_Evaluate_policy = False
     lex_n_eval_episodes = 10000
@@ -112,7 +114,7 @@ if __name__ == "__main__":
         if algorithm_used == DET_CONVEX_HULL_VI:
             if Calculate_hulls:
                 env = Environment(weights=weights)
-                policy, q_hulls = convexhull_VI(env, theta=0.01, discount_factor=0.7)
+                policy, q_hulls = convexhull_VI(env, theta=theta, discount_factor=0.7)
                 np.save(hulls_name, q_hulls, allow_pickle=True)
                 np.save(chvi_policy_name, policy)
                 print(f"Saved Q-hulls to {hulls_name}")
@@ -184,7 +186,7 @@ if __name__ == "__main__":
                 env = Environment(weights=None)
                 env.weights = weights
                 q_hulls_filename = os.path.join(PDIR, "CHVI_stochastic_qhulls.pkl")
-                q_hulls = convexhull_VI(env, theta=1, discount_factor=discount_factor,
+                q_hulls = convexhull_VI(env, theta=theta, discount_factor=discount_factor,
                                         MNS_filename=os.path.join(PDIR, "CHVI_stochastic_MNS.pkl"),
                                         q_hulls_file=q_hulls_filename)
                 np.save(hulls_name, q_hulls, allow_pickle=True)
@@ -206,7 +208,7 @@ if __name__ == "__main__":
                 print(f"Weights: {weights}\n")
                 env = Environment(weights=weights)
                 env.reset()
-                policy, q = value_iteration(env, theta=1, discount_factor=discount_factor,
+                policy, q = value_iteration(env, theta=theta, discount_factor=discount_factor,
                                             MNS_filename=os.path.join(PDIR, "VI_stochastic_MNS.pkl"),
                                             v_table_file=v_table_name)
                 np.save(train_policy_name, policy)
@@ -299,7 +301,7 @@ if __name__ == "__main__":
             mean_vec = results['mean_return']
             std_vec  = results['std_return']
             print(f"\nMean discounted vector return:")
-            print(f"  [r_car, r_ped1, r_ped2] = [{mean_vec[0]:.4f}, {mean_vec[1]:.4f}, {mean_vec[2]:.4f}]")
+            print(f"  [r_car, r_ped1, r_ped2] = [{mean_vec[0]:.4f}, {mean_vec[1]:.4f}, {mean_vec[2]:.4f}]+-[{std_vec[0]:.4f}, {std_vec[1]:.4f}, {std_vec[2]:.4f}]")
 
             if weights is not None:
                 weights_arr        = np.array(weights)
@@ -319,6 +321,7 @@ if __name__ == "__main__":
         algorithm_used  = lex_algorithm
         priority        = lex_priority
         Training        = lex_Training
+        Calculate_lexhulls = lex_Calculate_lexhulls
         Test            = lex_Test
         Evaluate_policy = lex_Evaluate_policy
         n_eval_episodes = lex_n_eval_episodes
@@ -346,7 +349,7 @@ if __name__ == "__main__":
                 env = Environment(weights=None)
                 policy, Q = LG_VI_lexmax(
                     env,
-                    theta=1,
+                    theta=theta,
                     discount_factor=discount_factor,
                     priority=priority,
                     MNS_filename=os.path.join(PDIR, "LGVI_lexmax_MNS.pkl"),
@@ -356,13 +359,14 @@ if __name__ == "__main__":
                 print(f"Saved policy to {train_policy_name}\n")
                 print("-------------------\nFinished!!!")
 
-            elif algorithm_used == LGVI_LEXHULL:
+        if Calculate_lexhulls:
+            if algorithm_used == LGVI_LEXHULL:
                 print("Training Lexicographic Value Iteration (lexhull)")
                 print("Trains once and extracts policies for all 6 priority orders\n")
                 env = Environment(weights=None)
                 policies, Q_hulls = LG_VI_lexhull(
                     env,
-                    theta=1,
+                    theta=theta,
                     discount_factor=discount_factor,
                     MNS_filename=os.path.join(PDIR, "LGVI_lexhull_MNS.pkl"),
                     v_hulls_file=v_hulls_file,
@@ -460,7 +464,7 @@ if __name__ == "__main__":
             mean_vec = results['mean_return']
             std_vec  = results['std_return']
             print(f"\nMean discounted vector return:")
-            print(f"  [r_car, r_ped1, r_ped2] = [{mean_vec[0]:.4f}, {mean_vec[1]:.4f}, {mean_vec[2]:.4f}]")
+            print(f"  [r_car, r_ped1, r_ped2] = [{mean_vec[0]:.4f}, {mean_vec[1]:.4f}, {mean_vec[2]:.4f}]+-[{std_vec[0]:.4f}, {std_vec[1]:.4f}, {std_vec[2]:.4f}]")
             print(f"\nStd discounted vector return:")
             print(f"  [r_car, r_ped1, r_ped2] = [{std_vec[0]:.4f}, {std_vec[1]:.4f}, {std_vec[2]:.4f}]")
 

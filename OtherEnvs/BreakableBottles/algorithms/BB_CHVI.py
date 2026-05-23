@@ -120,6 +120,8 @@ def convexhull_VI(env, theta=1.0, discount_factor=0.95,
                 else:
                     new_V = all_q_vectors
 
+                new_V = new_V[np.lexsort(new_V.T)]
+
                 V[state] = new_V
 
                 total_hull_vertices += len(new_V)
@@ -128,10 +130,10 @@ def convexhull_VI(env, theta=1.0, discount_factor=0.95,
                 if v_old.shape == new_V.shape:
                     max_diff = np.max(np.abs(new_V - v_old))
                 else:
-                    d1 = directed_hausdorff(v_old, new_V)[0]
-                    d2 = directed_hausdorff(new_V, v_old)[0]
-                    max_diff = max(d1, d2)
-                    # max_diff = float('inf')
+                    # d1 = directed_hausdorff(v_old, new_V)[0]
+                    # d2 = directed_hausdorff(new_V, v_old)[0]
+                    # max_diff = max(d1, d2)
+                    max_diff = float('inf')
 
                 delta = max(delta, max_diff)
 
@@ -158,6 +160,11 @@ def convexhull_VI(env, theta=1.0, discount_factor=0.95,
         with open(q_hulls_file, 'wb') as f:
             pickle.dump(Q_hulls, f)
         print(f"Q_hulls saved to {q_hulls_file}")
+
+        v_hulls_file = q_hulls_file.replace('qhulls', 'vhulls').replace('.npy', '.pkl')
+        with open(v_hulls_file, 'wb') as f:
+            pickle.dump(V, f)
+        print(f"V_hulls saved to {v_hulls_file}")
 
     return Q_hulls
 

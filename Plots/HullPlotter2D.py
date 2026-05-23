@@ -47,9 +47,9 @@ lexhull_points = np.array([
 
 CHVI_COLOR    = '#4fc3f7'
 LEXHULL_COLOR = '#ff7043'
-BG_COLOR      = '#0f0f1a'
-PANEL_COLOR   = '#13131f'
-GRID_COLOR    = '#1e1e35'
+BG_COLOR      = 'white'
+PANEL_COLOR   = 'white'
+GRID_COLOR    = "#d1d1d1"
 
 projections = [(0, 1), (0, 2), (1, 2)]
 labels      = ['Obj 1', 'Obj 2', 'Obj 3']
@@ -92,9 +92,9 @@ for ax, (i, j) in zip(axes, projections):
     ax.tick_params(colors='#aaaacc', labelsize=8)
     ax.grid(True, color=GRID_COLOR, linestyle='--', linewidth=0.5)
     for spine in ax.spines.values():
-        spine.set_edgecolor('#2a2a4a')
-    ax.legend(fontsize=9, labelcolor='white',
-              facecolor='#1a1a2e', edgecolor='#333355',
+        spine.set_edgecolor('black')
+    ax.legend(fontsize=9, labelcolor='black',
+              facecolor='white',
               loc='best', framealpha=0.85)
 
 fig.suptitle('Convex Hull Comparison: CHVI vs LexHull — 2D Projections',
@@ -104,7 +104,7 @@ plt.tight_layout()
 plt.savefig(
     'hull_comparison_2d.png',
     dpi=150, bbox_inches='tight',
-    facecolor=fig.get_facecolor(),
+    facecolor='white',
 )
 print("Saved → hull_comparison_2d.png")
 plt.show()

@@ -1,13 +1,13 @@
 BENCHMARK 1: Convex Hull Value Iteration + Extract 6 Lexicographic Policies
 ------------------------------------------------------------
-CHVI: 187.593
+CHVI: 166.528
 Policy extraction per order:
-[0, 1, 2]: 0.592
-[0, 2, 1]: 0.640
-[1, 0, 2]: 0.663
-[1, 2, 0]: 0.706
-[2, 0, 1]: 0.903
-[2, 1, 0]: 0.945
-Total extraction:4.449
+[0, 1, 2]: 0.602
+[0, 2, 1]: 0.655
+[1, 0, 2]: 0.762
+[1, 2, 0]: 0.804
+[2, 0, 1]: 1.033
+[2, 1, 0]: 0.865
+Total extraction:4.720
 
- TOTAL TIME: 192.042
+ TOTAL TIME: 171.248

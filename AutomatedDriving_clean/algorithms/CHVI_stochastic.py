@@ -170,6 +170,8 @@ def convexhull_VI(env, theta=0.01, discount_factor=0.7, MNS_filename='stochastic
                             new_V = get_hull(all_q_vectors)
                         else:
                             new_V = all_q_vectors
+
+                        new_V = new_V[np.lexsort(new_V.T)]
                         
                         V[state_tuple] = new_V
 

@@ -1,7 +1,7 @@
 BENCHMARK 2: 2x Lexicographic Value Iteration
 ------------------------------------------------------------
-Priority [0, 1]: 0.420 s
-Priority [1, 0]: 0.222 s
+Priority [0, 1]: 0.329 s
+Priority [1, 0]: 0.176 s
 
-TOTAL TIME: 0.646 s
-Average per run: 0.323 s
+TOTAL TIME: 0.511 s
+Average per run: 0.255 s

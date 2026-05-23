@@ -31,10 +31,14 @@ def value_iteration(env, theta=1.0, discount_factor=0.7, MNS_filename='dstc_poli
     n_rows    = env.n_rows     # 11
     n_cols    = env.n_cols     # 11
     n_actions = env.n_actions  # 4
+    n_rewards = 2
 
     V      = np.zeros([n_rows, n_cols])              # V table
     policy = np.zeros([n_rows, n_cols], dtype=int)   # For each state, which action to take?
     Q      = np.zeros([n_rows, n_cols, n_actions])   # For each state-action pair, expected total reward
+
+    V_vec = np.zeros([n_rows, n_cols, n_rewards])
+    Q_vec = np.zeros([n_rows, n_cols, n_actions, n_rewards]) 
 
     weight_vect = np.array(env.weights)
  
@@ -71,6 +75,7 @@ def value_iteration(env, theta=1.0, discount_factor=0.7, MNS_filename='dstc_poli
                 v_old = V[row, col].copy()
 
                 q_values = np.zeros(n_actions)
+                q_vectors = np.zeros((n_actions, n_rewards))
 
                 for action in range(n_actions):
 
@@ -87,16 +92,22 @@ def value_iteration(env, theta=1.0, discount_factor=0.7, MNS_filename='dstc_poli
                         outcomes = model_next_state[(row, col, action)]
 
                     q_value = 0.0
+                    q_vector = np.zeros(n_rewards)
 
                     for next_state, reward_vect, done, prob in outcomes:
+                        reward_vect = np.asarray(reward_vect, dtype=float) 
                         reward_scalar = np.dot(reward_vect, weight_vect)
 
                         if done:
                             q_value += prob * reward_scalar
+                            q_vector += prob * reward_vect
+
                         else:
                             next_row, next_col = next_state
                             next_value = V[next_row, next_col]
+                            next_value_vect = V_vec[next_state]
                             q_value += prob * (reward_scalar + discount_factor * next_value)
+                            q_vector += prob * (reward_vect + discount_factor * next_value_vect)
 
                         
                     if not isinstance(q_value, (int, float, np.floating)):
@@ -107,12 +118,16 @@ def value_iteration(env, theta=1.0, discount_factor=0.7, MNS_filename='dstc_poli
                         print(f"  outcomes: {outcomes}")
                     
                     q_values[action] = q_value
-
+                    q_vectors[action] = q_vector
+                
+                best_action = int(np.argmax(q_values))
                 # Store Q-values for this state
                 Q[row, col] = q_values
+                Q_vec[row, col] = q_vectors
 
                 # Update value function: V(s) = max_a Q(s,a)
                 V[row, col] = np.max(q_values)
+                V_vec[row, col] = q_vectors[best_action]
 
                 # Update delta - maximum change in value function
                 delta = max(delta, np.abs(v_old - V[row, col]))
@@ -138,6 +153,11 @@ def value_iteration(env, theta=1.0, discount_factor=0.7, MNS_filename='dstc_poli
         os.makedirs(os.path.dirname(v_table_file) if os.path.dirname(v_table_file) else '.', exist_ok=True)
         with open(v_table_file, 'wb') as f:
             pickle.dump(V, f)
+        
+        v_vec_file = v_table_file.replace('.pkl', '_vec.pkl')
+        with open(v_vec_file, 'wb') as f:
+            pickle.dump(V_vec, f)
+        print(f"V table (vector) saved to {v_vec_file}")
 
     # Extract policy: for each state, choose action with best Q-value
     print("\nExtracting policy...")

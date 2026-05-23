@@ -86,7 +86,7 @@ def value_iteration(env, theta=1.0, discount_factor=0.7, MNS_filename='stochasti
                                     next_state, reward_vect, done_array = env.step([action])
                                     done = done_array[0]  
                                     prob = 1.0
-                                    outcomes.append((next_state, reward_vect, done, prob))
+                                    outcomes.append((np.array(next_state, copy=True), np.array(reward_vect, copy=True), bool(done), prob))
 
                                 elif p1_is_stochastic and not p2_is_stochastic:
                                     for p1_action in pedestrian_stochastic_actions:
@@ -95,7 +95,7 @@ def value_iteration(env, theta=1.0, discount_factor=0.7, MNS_filename='stochasti
                                         next_state, reward_vect, done_array = env.step([action, p1_action, 8000])
                                         done = done_array[0]
                                         prob = 1.0 / len(pedestrian_stochastic_actions)
-                                        outcomes.append((next_state, reward_vect, done, prob))
+                                        outcomes.append((np.array(next_state, copy=True), np.array(reward_vect, copy=True), bool(done), prob))
 
                                 elif not p1_is_stochastic and p2_is_stochastic:
                                     for p2_action in pedestrian_stochastic_actions:
@@ -104,7 +104,7 @@ def value_iteration(env, theta=1.0, discount_factor=0.7, MNS_filename='stochasti
                                         done = done_array[0]
                                         prob = 1.0 / len(pedestrian_stochastic_actions)
 
-                                        outcomes.append((next_state, reward_vect, done, prob))
+                                        outcomes.append((np.array(next_state, copy=True), np.array(reward_vect, copy=True), bool(done), prob))
                                 else:
                                     # Both pedestrians are stochastic
                                     for p1_action in pedestrian_stochastic_actions:
@@ -113,7 +113,7 @@ def value_iteration(env, theta=1.0, discount_factor=0.7, MNS_filename='stochasti
                                             next_state, reward_vect, done_array = env.step([action, p1_action, p2_action])
                                             done = done_array[0]
                                             prob = 1.0 / (len(pedestrian_stochastic_actions) ** 2) # 0.25
-                                            outcomes.append((next_state, reward_vect, done, prob))
+                                            outcomes.append((np.array(next_state, copy=True), np.array(reward_vect, copy=True), bool(done), prob))
                                 
                                 model_next_state[(c, p1, p2, action)] = outcomes
                                 

@@ -20,18 +20,21 @@ if __name__ == "__main__":
     algorithm_used = LGVI_LEXHULL # VALUE_ITERATION | CONVEX_HULL_VI | LGVI_LEXMAX | LGVI_LEXHULL
 
     # -- VI and CHVI settings ----------------------------------
-    weights             = [1000, 1] # [w_treasure, w_time]
-    Training            = False  # True: train and save policy, False: load policy
+    weights             = [100, 1] # [w_treasure, w_time]
+    Training            = True  # True: train and save policy, False: load policy
     Calculate_hulls     = False  # For COVNEX_HULL_VI True: compute, False: extract from saved hulls
     
     # -- Lexicographic settings --------------------------------
     priority         = [1, 0] 
-    lex_Training     = False
+    lex_Training     = True
+    Calculate_lexhulls = True
     
     # -- Shared settings ---------------------------------------
     Test            = False # True: visualise poolicy after training/loading
+    Load_V_at_initial_state = True
     Evaluate_policy = True  # True: run evaluation
     discount_factor = 0.99
+    theta = 0.01
     n_eval_episodes = 1
     max_steps = 200
 
@@ -77,9 +80,11 @@ if __name__ == "__main__":
         v_table_file      = os.path.join(PDIR, f"DST_LGVI_lexmax_{priority[0]}-{priority[1]}_V_table.pkl")
 
     elif algorithm_used == LGVI_LEXHULL:
+        v_hulls_file     = os.path.join(PDIR, "DST_LGVI_lexhull_V_hulls.pkl")
+        q_hulls_file     = os.path.join(PDIR, "DST_LGVI_lexhull_Q_hulls.pkl")
         test_policy_file  = os.path.join(PDIR, f"DST_LGVI_lexhull_{priority[0]}-{priority[1]}_policy.npy")
-        v_hulls_file      = os.path.join(PDIR, f"DST_LGVI_lexhull_{priority[0]}-{priority[1]}_V_hulls.pkl")
-        q_hulls_file      = os.path.join(PDIR, f"DST_LGVI_lexhull_{priority[0]}-{priority[1]}_q_hulls.pkl")
+        # v_hulls_file      = os.path.join(PDIR, f"DST_LGVI_lexhull_{priority[0]}-{priority[1]}_V_hulls.pkl")
+        # q_hulls_file      = os.path.join(PDIR, f"DST_LGVI_lexhull_{priority[0]}-{priority[1]}_q_hulls.pkl")
 
 
 
@@ -94,7 +99,7 @@ if __name__ == "__main__":
             start_row, start_col = env.start_state
             print(f"Start state: row={start_row}, col={start_col}\n")
 
-            policy, q = value_iteration(env, theta=1.0, discount_factor=discount_factor, MNS_filename=MNS_VI, v_table_file=v_table_file)
+            policy, q = value_iteration(env, theta=theta, discount_factor=discount_factor, MNS_filename=MNS_VI, v_table_file=v_table_file)
 
             np.save(train_policy_file, policy)
             print(f"Saved policy to {train_policy_file}\n")
@@ -119,7 +124,7 @@ if __name__ == "__main__":
     elif algorithm_used == CONVEX_HULL_VI:
         if Calculate_hulls:
             env = DSTEnvironment(weights=weights)
-            q_hulls = convexhull_VI(env, theta=0.01, discount_factor=discount_factor)
+            q_hulls = convexhull_VI(env, theta=theta, discount_factor=discount_factor, MNS_filename=MNS_CHVI, q_hulls_file=hulls_file)
             policy = extract_policy_for_weights(q_hulls, weights, env, env.n_actions)
             np.save(hulls_file, q_hulls, allow_pickle=True)
             np.save(chvi_policy_file, policy)
@@ -140,7 +145,7 @@ if __name__ == "__main__":
             env = DSTEnvironment(weights=None)
             policy, Q = LG_VI_lexmax(
                 env,
-                theta=1,
+                theta=theta,
                 discount_factor=discount_factor,
                 priority=priority,
                 MNS_filename=MNS_LEXMAX,
@@ -156,12 +161,12 @@ if __name__ == "__main__":
             env = DSTEnvironment(weights=None)
 
     elif algorithm_used == LGVI_LEXHULL:
-        if lex_Training:
+        if Calculate_lexhulls:
             print("Training Lexicographic Value Iteration (lexhull)")
             env = DSTEnvironment(weights=None)
             policies, Q_hulls = LG_VI_lexhull(
                 env,
-                theta=1.0,
+                theta=theta,
                 discount_factor=discount_factor,
                 MNS_filename=MNS_LEXHULL,
                 v_hulls_file=v_hulls_file,
@@ -311,3 +316,93 @@ if __name__ == "__main__":
             scalarised_returns = np.dot(results['episode_returns'], weights_arr)
             print(f"  Mean scalarised return: {scalarised_mean:.4f}")
             print(f"  Std scalarised return:  {np.std(scalarised_returns):.4f}")
+
+
+    # ##############################################################
+    # LOAD V AT INITIAL STATE
+    # ##############################################################
+    # Loads a V-table / V-hulls file and reports the vector value
+    # at the initial state. For hull-based files, selects the vertex
+    # corresponding to the given weights (CHVI) or priority (LexHull).
+    # ##############################################################
+
+    if Load_V_at_initial_state:
+        print(f"\n{'='*60}")
+        print("THEORETICAL VALUE AT INITIAL STATE (loaded from file)")
+        print(f"{'='*60}")
+
+        load_weights  = weights  # used by CHVI (vertex selection)
+        load_priority = priority    # used by LexHull (vertex selection)
+
+        if algorithm_used == VALUE_ITERATION:
+            load_file = os.path.join(PDIR, f"DST_V_table_{weights[0]}-{weights[1]}_vec.pkl")
+        elif algorithm_used == CONVEX_HULL_VI:
+            load_file = os.path.join(PDIR, "DST_CHVI_vhulls.pkl")
+        elif algorithm_used == LGVI_LEXMAX:
+            load_file = os.path.join(PDIR,f"DST_LGVI_lexmax_{priority[0]}-{priority[1]}_V_table.pkl")
+        elif algorithm_used == LGVI_LEXHULL:
+            load_file = os.path.join(PDIR, "DST_LGVI_lexhull_V_hulls.pkl")
+
+        env_load = DSTEnvironment(weights=load_weights)
+        s0       = tuple(env_load.start_state)
+
+        try:
+            with open(load_file, 'rb') as f:
+                data = pickle.load(f)
+        except FileNotFoundError:
+            print(f"ERROR: file not found: {load_file}")
+            data = None
+
+        if data is not None:
+            fname = os.path.basename(load_file)
+            V_s0  = None
+
+            # ---------- VI: vector V table (numpy array) --------------
+            if "DST_V_table" in fname and "_vec" in fname:
+                V_s0 = np.asarray(data[s0])
+                print(f"File         : {fname}")
+                print(f"Algorithm    : VI (vector)")
+                print(f"Weights      : {load_weights}")
+                print(f"Initial state: {s0}")
+
+            # ---------- LexMax: vector V table ------------------------
+            elif "DST_LGVI_lexmax" in fname and "V_table" in fname:
+                V_s0 = np.asarray(data[s0])
+                print(f"File         : {fname}")
+                print(f"Algorithm    : LexMax")
+                print(f"Priority     : {load_priority}")
+                print(f"Initial state: {s0}")
+
+            # ---------- CHVI: V-hulls dict ----------------------------
+            elif "DST_CHVI_vhulls" in fname:
+                value_hull = np.asarray(data[s0])
+                w_arr      = np.array(load_weights, dtype=float)
+                scalarised = value_hull @ w_arr
+                V_s0       = value_hull[int(np.argmax(scalarised))]
+                print(f"File         : {fname}")
+                print(f"Algorithm    : CHVI")
+                print(f"Weights      : {load_weights}")
+                print(f"Initial state: {s0}")
+                print(f"Hull size    : {len(value_hull)} vertices")
+
+            # ---------- LexHull: V-hulls dict -------------------------
+            elif "DST_LGVI_lexhull_V_hulls" in fname:
+                value_hull = np.asarray(data[s0])
+                ordered    = value_hull[:, load_priority]
+                idx        = int(np.lexsort(ordered.T[::-1])[-1])
+                V_s0       = value_hull[idx]
+                print(f"File         : {fname}")
+                print(f"Algorithm    : LexHull")
+                print(f"Priority     : {load_priority}")
+                print(f"Initial state: {s0}")
+                print(f"Hull size    : {len(value_hull)} vertices")
+
+            else:
+                print(f"ERROR: could not infer algorithm from filename '{fname}'")
+
+            if V_s0 is not None:
+                print(f"V(s0)        : [r_treasure, r_time] = "
+                      f"[{V_s0[0]:.4f}, {V_s0[1]:.4f}]")
+
+        print(f"{'='*60}")
+        del env_load

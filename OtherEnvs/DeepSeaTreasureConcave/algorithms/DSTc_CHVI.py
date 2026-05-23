@@ -128,6 +128,8 @@ def convexhull_VI(env, theta=1, discount_factor=0.7, MNS_filename='dstc_policies
                     new_V = get_hull(all_q_vectors)
                 else:
                     new_V = all_q_vectors
+                
+                new_V = new_V[np.lexsort(new_V.T)]
  
                 V[state_tuple] = new_V
 
@@ -163,7 +165,12 @@ def convexhull_VI(env, theta=1, discount_factor=0.7, MNS_filename='dstc_policies
         os.makedirs(os.path.dirname(q_hulls_file) if os.path.dirname(q_hulls_file) else '.', exist_ok=True)
         with open(q_hulls_file, 'wb') as f:
             pickle.dump(Q_hulls, f)
- 
+
+        v_hulls_file = q_hulls_file.replace('qhulls', 'vhulls').replace('.npy', '.pkl')
+        with open(v_hulls_file, 'wb') as f:
+            pickle.dump(V, f)
+        print(f"V_hulls saved to {v_hulls_file}")
+        
     return Q_hulls
 
 
