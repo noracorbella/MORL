@@ -26,5 +26,9 @@ Bibliografia/
 # Historical
 FirstSteps/
 
+# Excluded environments
+OtherEnvs/BreakableBottles/
+OtherEnvs/FruitTree/
+
 # Claude Code working directory
 .claude/
