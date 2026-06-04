@@ -29,6 +29,7 @@ FirstSteps/
 # Excluded environments
 OtherEnvs/BreakableBottles/
 OtherEnvs/FruitTree/
+AutomatedDriving/Other/
 
 # Claude Code working directory
 .claude/
