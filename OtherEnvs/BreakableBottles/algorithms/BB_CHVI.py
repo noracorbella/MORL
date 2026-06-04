@@ -130,10 +130,10 @@ def convexhull_VI(env, theta=1.0, discount_factor=0.95,
                 if v_old.shape == new_V.shape:
                     max_diff = np.max(np.abs(new_V - v_old))
                 else:
-                    # d1 = directed_hausdorff(v_old, new_V)[0]
-                    # d2 = directed_hausdorff(new_V, v_old)[0]
-                    # max_diff = max(d1, d2)
-                    max_diff = float('inf')
+                    d1 = directed_hausdorff(v_old, new_V)[0]
+                    d2 = directed_hausdorff(new_V, v_old)[0]
+                    max_diff = max(d1, d2)
+                    # max_diff = float('inf')
 
                 delta = max(delta, max_diff)
 

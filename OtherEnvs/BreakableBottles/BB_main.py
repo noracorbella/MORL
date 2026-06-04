@@ -27,20 +27,20 @@ if __name__ == "__main__":
     unbreakable_bottles = False
 
     # -- VI and CHVI settings ----------------------------------
-    weights         =  [1, 100, 10000]    # [w_time, w_delivery, w_potential]
+    weights         =  [10000, 100, 1]    # [w_time, w_delivery, w_potential]
     Training        = True  # True: train and save policy, False: load policy
     Calculate_hulls = True # For COVNEX_HULL_VI True: compute, False: extract from saved hulls
     
     # -- Lexicographic settings --------------------------------
-    priority     = [2, 1, 0]     # priority order over [time, delivery, potential]
+    priority     = [0, 2, 1]     # priority order over [time, delivery, potential]
     lex_Training = True
-    Calculate_lexhulls = True
+    Calculate_lexhulls = False
 
     # -- Shared settings ---------------------------------------
-    Test            = False  # True: visualise poolicy after training/loading
+    Test            = True  # True: visualise poolicy after training/loading
     Load_V_at_initial_state = True
     Evaluate_policy = True  # True: run evaluation
-    theta            = 0.1
+    theta            = 1e-4
     discount_factor  = 0.99
     n_eval_episodes  = 1000
     max_steps        = 200

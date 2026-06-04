@@ -81,7 +81,8 @@ def LG_VI_lexmax(env, theta=1.0, discount_factor=0.95, priority=[0, 1, 2],
                 best_action = lex_max(q_vectors, priority=priority)
                 V[state]    = q_vectors[best_action]
 
-                delta = max(delta, np.sum(np.abs(v_old - V[state])))
+                # delta = max(delta, np.sum(np.abs(v_old - V[state])))
+                delta = max(delta, np.max(np.abs(v_old - V[state])))
 
                 pbar.update(1)
 

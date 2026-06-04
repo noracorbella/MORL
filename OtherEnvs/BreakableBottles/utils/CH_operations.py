@@ -17,24 +17,46 @@ def non_dominated(solutions):
 
 def get_hull(points):
     """
-
     From a set of points, computes its associated convex hull.
+    Handles degenerate configurations where points don't span the full ambient dimension
+    by projecting to the intrinsic subspace before calling ConvexHull.
 
     :param points: a list / numpy array of vectors
     :return: a numpy array of vectors
     """
 
+    # pareto pre filter
     points = non_dominated(np.array(points))
+    n = len(points)
 
-    # Compute new hull, if there are enough points
+    if n <= 1:
+        return np.array(points)
+
+    # Determine intrinsic rank via SVD to handle low-rank / degenerate point sets
+    centered = points - points.mean(axis=0)
+    _, s, Vt = np.linalg.svd(centered, full_matrices=False)
+    tol = np.finfo(float).eps * max(centered.shape) * (s[0] if s.size > 0 else 1.0)
+    rank = int(np.sum(s > tol))
+
+    if rank == 0:
+        # All points are numerically identical
+        return np.array([points[0]])
+
+    if rank == 1:
+        # Points are collinear — hull is just the two endpoints
+        proj = centered @ Vt[0]
+        vertices = points[[np.argmin(proj), np.argmax(proj)]]
+        return non_dominated(np.unique(vertices, axis=0))
+
+    # Project to intrinsic subspace and compute hull there;
+    # vertex indices map back to the original (unrotated) points unchanged
+    proj = centered @ Vt[:rank].T
     try:
-        hull = ConvexHull(points)
-        hull_points = [points[vertex] for vertex in hull.vertices]
-        vertexs = non_dominated(np.array(hull_points))
-    except:
-        vertexs = points
-
-    return np.array(vertexs)
+        hull = ConvexHull(proj)
+        return non_dominated(points[hull.vertices])
+    except Exception:
+        return non_dominated(points)
+    
 
 
 def translate_hull(point, gamma, hull):

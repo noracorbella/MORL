@@ -146,7 +146,7 @@ def extract_lex_policy_from_qhulls(Q_hulls, priority, env, n_actions):
         # Among best vectors, pick the best action
         action_best_vectors = np.array(action_best_vectors)
         best_action = lex_max(action_best_vectors, priority=priority)
-        policy[row, col]    = best_action
+        policy[row, col, has_gold, has_gem] = best_action
 
     return policy
 
