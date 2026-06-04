@@ -16,8 +16,12 @@ videos/
 AutomatedDriving/Comparison/allpolicies/
 AutomatedDriving/Comparison/policies/
 
-# Personal/internal notes
+# Personal/internal notes and documents
 *.docx
+*.pdf
+*.pptx
+*.ipynb
+Bibliografia/
 
 # Historical
 FirstSteps/
