@@ -12,7 +12,7 @@ LGVI_LEXHULL = 3
 
 
 if __name__ == "__main__":
-    
+
     # ##############################################################
     # CONFIGURATION
     # ##############################################################
@@ -23,7 +23,7 @@ if __name__ == "__main__":
     weights         = [10000, 100, 1]   # [w_enemy, w_gold, w_gem]
     chvi_priority   = [1, 2, 0]    # priority order for policy extraction (CONVEX_HULL_VI only)
     Training        = True  # True: train and save policy, False: load policy
-    Calculate_hulls = False # For COVNEX_HULL_VI True: compute, False: extract from saved hulls
+    Calculate_hulls = True # For COVNEX_HULL_VI True: compute, False: extract from saved hulls
 
     # -- Lexicographic settings --------------------------------
     priority     = [2, 1, 0]     # priority order over [enemy, gold, gem]
@@ -70,7 +70,7 @@ if __name__ == "__main__":
         train_policy_file = os.path.join(PDIR, f"RG_VI_{weights[0]}-{weights[1]}-{weights[2]}-policy.npy")
         test_policy_file = os.path.join(PDIR, f"RG_VI_{weights[0]}-{weights[1]}-{weights[2]}-policy.npy")
         v_table_file = os.path.join(PDIR, f"RG_V_table_{weights[0]}-{weights[1]}-{weights[2]}.pkl")
-    
+
     elif algorithm_used == CONVEX_HULL_VI:
         hulls_file       = os.path.join(PDIR, "RG_CHVI_qhulls.pkl")
         chvi_policy_file = os.path.join(PDIR, f"RG_CHVI_{chvi_priority[0]}-{chvi_priority[1]}-{chvi_priority[2]}-policy.npy")
@@ -302,10 +302,10 @@ if __name__ == "__main__":
             print(f"\nWeights                : {weights}")
             print(f"Mean scalarised return : {scalarised_mean:.4f}")
             print(f"Std  scalarised return : {np.std(scalarised_returns):.4f}")
-    
-    
-    
-    
+
+
+
+
     # ##############################################################
     # LOAD V AT INITIAL STATE
     # ##############################################################

@@ -1,4 +1,15 @@
-# Multi-Objective Reinforcement Learning - TFM
+# Multi-Objective Reinforcement Learning for Computing All Optimal Policies with Many Objectives
+
+### Master's Thesis
+
+**University Master's Degree in Modelling for Science and Engineering**
+
+**Author:** Nora Corbella Alcántara  
+**Supervisor:** Dr. Manel Rodríguez Soto
+
+June 2026
+
+---
 
 This repository contains the code developed for the Master's Thesis on Multi-Objective Reinforcement Learning (MORL). It implements and compares four planning algorithms across several environments, including a custom autonomous driving scenario and standard MORL benchmarks.
 
