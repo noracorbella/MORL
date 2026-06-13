@@ -171,6 +171,7 @@ def value_iteration(env, theta=1.0, discount_factor=0.7, MNS_filename='stochasti
             print(f"Converged in {iteration} iterations")
             break
 
+    os.makedirs(os.path.dirname(MNS_filename), exist_ok=True)
     with open(MNS_filename, 'wb') as f:
         pickle.dump(model_next_state, f)
     print(f"Model saved to {MNS_filename}")

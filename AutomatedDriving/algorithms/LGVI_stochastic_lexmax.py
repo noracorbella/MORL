@@ -150,6 +150,7 @@ def LG_VI_lexmax(env, theta=1.0, discount_factor=0.7, priority=[0,1,2], MNS_file
             print(f"Converged in {iteration} iterations")
             break
 
+    os.makedirs(os.path.dirname(MNS_filename), exist_ok=True)
     with open(MNS_filename, 'wb') as f:
         pickle.dump(model_next_state, f)
     print(f"model_next_state saved to {MNS_filename}")
