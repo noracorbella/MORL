@@ -45,7 +45,7 @@ if __name__ == "__main__":
     stoc_lex_priority    = [2, 1, 0]             # (STOC_CONVEX_HULL_VI only) priority order for policy extraction
     stoc_Training        = False
     stoc_Calculate_hulls = False
-    stoc_Test            = False
+    stoc_Test            = True
     stoc_Evaluate_policy = True
     stoc_n_eval_episodes = 10000
     stoc_max_steps       = 200
@@ -55,10 +55,10 @@ if __name__ == "__main__":
     # -- Lexicographic settings --------------------------------
     lex_algorithm       = LGVI_LEXMAX   # LGVI_LEXMAX | LGVI_LEXHULL
     lex_priority        = [0, 2, 1]         # priority order over [r_car, r_ped1, r_ped2]
-    lex_Training        = True
+    lex_Training        = False
     lex_Calculate_lexhulls = False
-    lex_Test            = False
-    lex_Evaluate_policy = False
+    lex_Test            = True
+    lex_Evaluate_policy = True
     lex_n_eval_episodes = 10000
     lex_max_steps       = 200
     lex_discount_factor = 0.7
@@ -471,8 +471,6 @@ if __name__ == "__main__":
             std_vec  = results['std_return']
             print(f"\nMean discounted vector return:")
             print(f"  [r_car, r_ped1, r_ped2] = [{mean_vec[0]:.4f}, {mean_vec[1]:.4f}, {mean_vec[2]:.4f}]+-[{std_vec[0]:.4f}, {std_vec[1]:.4f}, {std_vec[2]:.4f}]")
-            print(f"\nStd discounted vector return:")
-            print(f"  [r_car, r_ped1, r_ped2] = [{std_vec[0]:.4f}, {std_vec[1]:.4f}, {std_vec[2]:.4f}]")
 
 
     # ##############################################################
