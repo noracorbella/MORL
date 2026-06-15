@@ -123,19 +123,20 @@ def extract_lex_policy_from_qhulls(Q_hulls, priority, env, n_actions):
         env : Environment
         n_actions: int
     Returns:
-        policy : np.ndarray ([n_cells, n_cells, n_cells])
+        policy : np.ndarray (n_states,)
     """
-    policy = np.zeros([env.n_rows, env.n_cols, 2, 2], dtype=int)
+    policy = np.full(env.n_states, -1, dtype=int)
 
     for state in env.valid_states:
 
-        row, col, has_gold, has_gem = state
-        state_tuple = state
+        valid_actions = env.valid_actions(state)
+        if len(valid_actions) == 0:
+            continue
 
         # For each available action pick the best hull vector with lex max
         action_best_vectors = []
-        for action in range(n_actions):
-            hull = Q_hulls[state_tuple + (action,)]
+        for action in valid_actions:
+            hull = Q_hulls[(state, action)]
             if not isinstance(hull, np.ndarray):
                 hull = np.array(hull)
             best_idx = lex_max(hull, priority=priority)
@@ -144,7 +145,7 @@ def extract_lex_policy_from_qhulls(Q_hulls, priority, env, n_actions):
         # Among best vectors, pick the best action
         action_best_vectors = np.array(action_best_vectors)
         best_action = lex_max(action_best_vectors, priority=priority)
-        policy[row, col, has_gold, has_gem] = best_action
+        policy[state] = valid_actions[best_action]
 
     return policy
 

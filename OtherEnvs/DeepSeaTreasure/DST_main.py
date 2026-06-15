@@ -17,21 +17,21 @@ if __name__ == "__main__":
     # CONFIGURATION
     # ##############################################################
 
-    algorithm_used = VALUE_ITERATION # VALUE_ITERATION | CONVEX_HULL_VI | LGVI_LEXMAX | LGVI_LEXHULL
+    algorithm_used = LGVI_LEXHULL # VALUE_ITERATION | CONVEX_HULL_VI | LGVI_LEXMAX | LGVI_LEXHULL
 
     # -- VI and CHVI settings ----------------------------------
     weights             = [1, 100] # [w_treasure, w_time]
-    chvi_priority       = [0, 1]   # priority order for policy extraction (CONVEX_HULL_VI only)
+    chvi_priority       = [1, 0]   # priority order for policy extraction (CONVEX_HULL_VI only)
     Training            = True  # True: train and save policy, False: load policy
-    Calculate_hulls     = False  # For COVNEX_HULL_VI True: compute, False: extract from saved hulls
+    Calculate_hulls     = True  # For COVNEX_HULL_VI True: compute, False: extract from saved hulls
 
     # -- Lexicographic settings --------------------------------
-    priority         = [0, 1] 
+    priority         = [1, 0] 
     lex_Training     = True
-    Calculate_lexhulls = False
+    Calculate_lexhulls = True
     
     # -- Shared settings ---------------------------------------
-    Test            = False # True: visualise poolicy after training/loading
+    Test            = True # True: visualise poolicy after training/loading
     Load_V_at_initial_state = True
     Evaluate_policy = True  # True: run evaluation
     discount_factor = 0.99

@@ -29,17 +29,17 @@ def example_execution(env, policy, render=False, n_test_episodes=5):
 
         done = False # Mark episode as not done yet
         timesteps = 0
-        total_reward = np.zeros(3)
+        total_reward = np.zeros(env.n_rewards)
 
         while timesteps < max_timesteps and not done:
             timesteps += 1
             action = policy[state[0], state[1], state[2], state[3]]
             obs, reward, terminated, truncated, info = env.step(action)
-            
+
             if render:
-                env.render()         
+                env.render()
                 time.sleep(0.4)
-            
+
             done = terminated or truncated
             state = tuple(int(x) for x in obs)
             total_reward += reward
@@ -75,6 +75,7 @@ class tester:
                     time.sleep(0.1)
             except KeyboardInterrupt:
                 pass
+
             finally:
                 env.close()
 

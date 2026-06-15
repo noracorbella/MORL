@@ -7,23 +7,27 @@ import sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(BASE_DIR, '..', 'utils'))
 
-from RG_LG_utils import lex_max
-from RG_utils import get_outcomes
+from RandMOMDP_LG_utils import lex_max
+from RandMOMDP_utils import get_outcomes
 
 
-def LG_VI_lexmax(env, theta=1.0, discount_factor=0.7, priority=[0, 1, 2],
-                 MNS_filename='rg_policies/RG_LGVI_lexmax_MNS.pkl',
+def LG_VI_lexmax(env, theta=1.0, discount_factor=0.7, priority=None,
+                 MNS_filename='randmomdp_policies/RandMOMDP_LGVI_lexmax_MNS.pkl',
                  v_table_file=None):
     """
-    Lexicographic Value Iteration for Resource Gathering (stochastic MOMDP).
+    Lexicographic Value Iteration for the random MOMDP (stochastic, integer states).
     """
 
-    n_actions    = env.n_actions   # 4
-    n_objectives = env.n_rewards   # 3
+    n_states     = env.n_states
+    n_actions    = env.n_actions
+    n_objectives = env.n_rewards
 
-    V      = np.zeros([env.n_rows, env.n_cols, 2, 2, n_objectives])
-    policy = np.zeros([env.n_rows, env.n_cols, 2, 2], dtype=int)
-    Q      = np.zeros([env.n_rows, env.n_cols, 2, 2, n_actions, n_objectives])
+    if priority is None:
+        print("Please specify a priority.")
+
+    V      = np.zeros((n_states, n_objectives))
+    policy = np.full(n_states, -1, dtype=int)
+    Q      = np.zeros((n_states, n_actions, n_objectives))
 
     os.makedirs(os.path.dirname(MNS_filename) if os.path.dirname(MNS_filename) else '.', exist_ok=True)
 
@@ -52,31 +56,31 @@ def LG_VI_lexmax(env, theta=1.0, discount_factor=0.7, priority=[0, 1, 2],
             for state in env.valid_states:
 
                 v_old = V[state].copy()
+                valid_actions = env.valid_actions(state)
                 q_vectors = np.zeros((n_actions, n_objectives))
 
-                for action in range(n_actions):
+                for action in valid_actions:
 
-                    if (*state, action) not in model_next_state:
+                    if (state, action) not in model_next_state:
                         outcomes = get_outcomes(env, state, action)
-                        model_next_state[(*state, action)] = outcomes
+                        model_next_state[(state, action)] = outcomes
                     else:
-                        outcomes = model_next_state[(*state, action)]
+                        outcomes = model_next_state[(state, action)]
 
                     q_vector = np.zeros(n_objectives)
 
                     for next_state, reward_vect, done, prob in outcomes:
-                        if done:
-                            q_vector += prob * reward_vect
-                        else:
-                            next_value = V[next_state]
-                            q_vector  += prob * (reward_vect + discount_factor * next_value)
+                        q_vector += prob * (reward_vect + discount_factor * V[next_state])
 
                     q_vectors[action] = q_vector
 
                 Q[state] = q_vectors
 
-                best_action = lex_max(q_vectors, priority=priority)
-                V[state]    = q_vectors[best_action]
+                if len(valid_actions) > 0:
+                    # Only lex-compare among available actions.
+                    candidate = q_vectors[valid_actions]
+                    best_action = lex_max(candidate, priority=priority)
+                    V[state] = candidate[best_action]
 
                 delta = max(delta, np.sum(np.abs(v_old - V[state])))
 
@@ -102,6 +106,10 @@ def LG_VI_lexmax(env, theta=1.0, discount_factor=0.7, priority=[0, 1, 2],
 
     print("\nExtracting policy...")
     for state in env.valid_states:
-        policy[state] = lex_max(Q[state], priority=priority)
+        valid_actions = env.valid_actions(state)
+        if len(valid_actions) > 0:
+            candidate = Q[state][valid_actions]
+            best_action = lex_max(candidate, priority=priority)
+            policy[state] = valid_actions[best_action]
 
     return policy, Q
