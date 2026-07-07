@@ -29,7 +29,19 @@ FirstSteps/
 # Excluded environments
 OtherEnvs/BreakableBottles/
 OtherEnvs/FruitTree/
+OtherEnvs/RandomMOMDP/
 AutomatedDriving/Other/
+
+
+OtherEnvs/DST_plot_timings.py
+OtherEnvs/timing_barplots/
 
 # Claude Code working directory
 .claude/
+
+
+validation/
+morl/core/validate_env.py
+environments/automated_driving/check_wrapper.py
+environments/deep_sea_treasure/check_wrapper.py
+environments/resource_gathering/check_wrapper.py
