@@ -1,12 +1,11 @@
-"""Scalarised Value Iteration (VI) for multi-objective MDPs.
+"""
+Value Iteration (VI) algorithm for MOMDPs.
 
-This is classic Value Iteration (Sutton & Barto, 4.4) applied to an
+This is Value Iteration from Sutton & Barto, 4.4 applied to a
 :class:`~morl.core.env_interface.MOEnv` by first scalarising each vector reward
 with a fixed weight vector ``w``: the scalar reward of a transition is
-``w . reward_vector``. It therefore finds an optimal policy for the single
-scalarised objective ``w`` and depends only on the :class:`MOEnv` contract.
-
-The public entry point is :func:`value_iteration`.
+``w · reward_vector``. It finds an optimal policy for the single
+scalarised objective ``w`` and depends only on the :class:`MOEnv`.
 """
 
 import numpy as np
@@ -16,44 +15,37 @@ from morl.core.env_interface import MOEnv
 
 
 def value_iteration(env: MOEnv, weights, theta=0.01):
-    """Run scalarised Value Iteration and return an optimal policy and values.
+    """
+    Run Value Iteration and return an optimal policy and values.
 
     Each vector reward ``r`` is scalarised as ``dot(weights, r)`` and standard
     Value Iteration is run on the resulting scalar MDP. Updates are performed
-    in place (Gauss-Seidel) over the non-terminal states; terminal states are
-    never backed up and have value ``0`` by definition (the reward for entering
-    a terminal state is carried on the transition that leads into it, per the
-    :class:`MOEnv` contract). Convergence uses the max-norm: the sweep stops
-    once the largest change in any state's value drops below ``theta``.
+    over the non-terminal states. Terminal states are never Bellman updated
+    and have value ``0`` by definition. Convergence uses the max-norm: the sweep 
+    stops once the largest change in any state's value drops below ``theta``.
 
     Parameters
     ----------
     env : MOEnv
-        The environment. Only the :class:`MOEnv` interface is used; in
-        particular the weight vector is *not* read from ``env`` (weights are not
-        part of the environment).
+        The environment. :class:`MOEnv`
     weights : sequence of float
         The scalarisation weights, one per objective. Must have length
         ``env.n_objectives``.
-    theta : float, optional
-        Max-norm convergence threshold. Smaller values give a more precise
-        result at the cost of more iterations. Defaults to ``0.01``, matching
-        the original DST configuration.
+    theta : float
+        Max-norm convergence threshold. Default ``0.01``.
 
     Returns
     -------
     policy : dict
-        Maps each non-terminal state to the greedy action (the action
-        maximising the scalarised action value). Terminal states are absent.
+        Map of non-terminal states to the greedy action.
     Q : dict
-        Maps each ``(state, action)`` pair (over non-terminal states) to its
-        converged scalarised action value. The state value is recovered as
-        ``V(s) = max_a Q[(s, a)]`` if ever needed. Terminal states are absent.
+        Map of ``(state, action)`` pair over non-terminal states to its
+        scalarised action value.
     """
     weights = np.asarray(weights, dtype=float)
     if weights.shape[0] != env.n_objectives:
         raise ValueError(
-            f"weights has length {weights.shape[0]}, expected "
+            f"weights has length {weights.shape[0]},"
             f"env.n_objectives = {env.n_objectives}"
         )
 
@@ -61,7 +53,7 @@ def value_iteration(env: MOEnv, weights, theta=0.01):
 
     non_terminal_states = [s for s in env.states() if not env.is_terminal(s)]
 
-    # Scalar value function; terminal states are implicitly 0 and never stored.
+    # Scalar value function
     V = {s: 0.0 for s in non_terminal_states}
 
     def state_value(s):
@@ -93,8 +85,8 @@ def value_iteration(env: MOEnv, weights, theta=0.01):
         if delta < theta:
             break
 
-    # Final sweep over the converged values: store every scalarised action
-    # value in Q and extract the greedy policy from it.
+    # Sweep over the converged values
+    # Store everything in Q and extract the greedy policy.
     Q = {}
     policy = {}
     for s in non_terminal_states:

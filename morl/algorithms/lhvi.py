@@ -1,32 +1,9 @@
-"""Lexicographic Hull Value Iteration (LHVI) for multi-objective MDPs.
+"""
+Lexicographic Hull Value Iteration (LHVI) for MOMDPs.
 
-LHVI is the hull-valued lexicographic algorithm: it has the same structure as
-Convex Hull Value Iteration (hull-valued Gauss-Seidel backups over the
-non-terminal states) but replaces the convex-hull operation with the
-*lexicographic hull*. Where CHVI keeps every Pareto-optimal convex-hull vertex,
-LHVI keeps only the vertices that are lexicographically optimal for at least one
-priority order over the objectives. The lexicographic hull is therefore a subset
-of the convex hull (``LH ⊆ CH``), and from the resulting Q-ring one policy can be
-extracted per priority order.
-
-It depends only on the :class:`~morl.core.env_interface.MOEnv` contract, the
-shared hull algebra in :mod:`morl.core.hull_ops`, and the :func:`lex_max`
-lexicographic selection reused from :mod:`morl.algorithms.lexvi` (the same
-0-based-index, highest-priority-first convention).
-
-Public entry points: :func:`lexicographic_hull_vi` (the algorithm) and
-:func:`extract_lex_policy` (policy extraction for one priority order).
-
-Note on the pruning implementation
-----------------------------------
-The lexicographic hull here is computed by the naive method: enumerate all
-priority orders and keep the union of their lexicographic maximisers
-(:func:`lex_hull`). With few objectives (e.g. the two of Deep Sea Treasure) this
-enumerates only ``n_objectives!`` orders and is trivial. A recursive variant that
-fixes one coordinate at a time avoids enumerating all ``n_objectives!`` orders and
-is much faster for many objectives; porting that optimisation is deferred to the
-AutomatedDriving environment (6 objectives, 720 orders) as a separate step. For
-few objectives it produces the identical hull.
+This is the hull-valued lexicographic algorithm. It depends only on the 
+:class:`~morl.core.env_interface.MOEnv`, the hull algebra in 
+:mod:`morl.core.hull_ops`, and the :func:`lex_max` from :mod:`morl.algorithms.lexvi`.
 """
 
 from itertools import permutations
@@ -45,20 +22,18 @@ from morl.algorithms.lexvi import lex_max
 
 
 def lex_hull(vertices, n_objectives, tol=1e-9):
-    """Return the lexicographic hull of ``vertices``.
+    """
+    Return the lexicographic hull of ``vertices``.
 
     Keeps only the rows of ``vertices`` that are the lexicographic maximiser
-    (:func:`lex_max`) for at least one priority order over the objectives. This
-    is the naive enumeration: it tries every one of the ``n_objectives!`` orders
-    and takes the union of the winning vertices (see the module docstring on the
-    deferred faster variant).
+    (:func:`lex_max`) for at least one priority order over the objectives. 
 
     Parameters
     ----------
     vertices : numpy array of shape ``(n_points, n_objectives)``
-        The candidate value vectors (typically a convex-hull-sized set).
+        The candidate value vectors.
     n_objectives : int
-        The number of objectives; the priority orders enumerated are the
+        The number of objectives. The priority orders enumerated are the
         permutations of ``range(n_objectives)``.
     tol : float, optional
         Tolerance passed to :func:`lex_max` for tie comparisons.
@@ -66,8 +41,7 @@ def lex_hull(vertices, n_objectives, tol=1e-9):
     Returns
     -------
     numpy array
-        The subset of ``vertices`` that survive lexicographic pruning, in
-        ascending index order (deterministic).
+        The subset of ``vertices`` that survive lexicographic pruning.
     """
     optimal = set()
     for order in permutations(range(n_objectives)):
@@ -76,45 +50,34 @@ def lex_hull(vertices, n_objectives, tol=1e-9):
 
 
 def lexicographic_hull_vi(env: MOEnv, theta=0.01):
-    """Run Lexicographic Hull Value Iteration and return ``(None, Q_hulls)``.
-
-    Performs hull-valued Bellman backups in place (Gauss-Seidel) over the
-    non-terminal states until convergence, exactly like
-    :func:`morl.algorithms.chvi.convexhull_vi` but with the convex-hull step
-    replaced by the lexicographic hull (:func:`lex_hull`). Terminal successors
-    contribute the zero hull, so their reward is carried unchanged. Convergence
-    uses the max-norm hull difference over the per-state hulls, after putting
-    vertices in canonical order.
+    """
+    Run Lexicographic Hull Value Iteration and return ``(None, Q_hulls)``.
 
     Parameters
     ----------
     env : MOEnv
-        The environment. Only the :class:`MOEnv` interface is used.
+        Environment of :class:`MOEnv`.
     theta : float, optional
-        Max-norm convergence threshold. Defaults to ``0.01``, matching the
-        original DST configuration.
+        Max-norm convergence threshold. Defaults is ``0.01``.
 
     Returns
     -------
     policy : None
-        Always ``None``, following CHVI: a hull represents a set of policies, not
-        one greedy action. Extract a concrete policy for a chosen priority order
-        with :func:`extract_lex_policy` (call it once per order to reproduce the
-        old "one policy per priority permutation" behaviour).
+        Always ``None``. Extract a concrete policy for a chosen priority order
+        with :func:`extract_lex_policy`.
     Q_hulls : dict
-        The lexicographic Q-ring: maps each ``(state, action)`` pair (over
+        The lexicographic Q: maps each ``(state, action)`` pair (over
         non-terminal states) to a numpy array of its lexicographic-hull vertices.
-        Same shape and name as CHVI's return. Terminal states are absent.
     """
     gamma = env.gamma
     n_objectives = env.n_objectives
 
     non_terminal_states = [s for s in env.states() if not env.is_terminal(s)]
 
-    # V-ring per state, initialised to the single zero vector.
+    # V hull per state, initialised to the single zero vector.
     V = {s: np.zeros((1, n_objectives)) for s in non_terminal_states}
 
-    # Q-ring per (state, action).
+    # Q hull per (state, action).
     Q_hulls = {}
     for s in non_terminal_states:
         for a in env.actions(s):
@@ -132,7 +95,6 @@ def lexicographic_hull_vi(env: MOEnv, theta=0.01):
 
                 for a in env.actions(s):
                     # Build each outcome's reward-translated successor hull
-                    # (identical to CHVI).
                     outcomes = []
                     for prob, next_state, reward_vector in env.transitions(s, a):
                         reward_vector = np.asarray(reward_vector, dtype=float)
@@ -158,7 +120,7 @@ def lexicographic_hull_vi(env: MOEnv, theta=0.01):
                 new_V = canonical_order(new_V)
                 V[s] = new_V
 
-                # Track average hull size over the per-state V-ring hulls.
+                # Track average hull size over the per-state V hulls.
                 total_hull_vertices += len(new_V)
                 num_hulls += 1
 
@@ -177,31 +139,29 @@ def lexicographic_hull_vi(env: MOEnv, theta=0.01):
 
 
 def extract_lex_policy(Q_hulls, env: MOEnv, priority):
-    """Extract a single policy from a lexicographic Q-ring for one priority order.
+    """
+    Extract a single policy from a lexicographic Q hull for one priority order.
 
     For each non-terminal state and each action, takes the action's
     lexicographically best hull vertex (:func:`lex_max` under ``priority``), then
     chooses the action whose best vertex is lexicographically best overall. This
-    is the per-priority extraction the old LHVI performed once per permutation;
-    call it once per order to obtain the full family of policies.
+    is the per-priority extraction.
 
     Parameters
     ----------
     Q_hulls : dict
-        A lexicographic Q-ring as returned by :func:`lexicographic_hull_vi`,
+        Lexicographic Q hull as returned by :func:`lexicographic_hull_vi`,
         keyed by ``(state, action)``.
     env : MOEnv
-        The environment (used for its state/action sets and ``n_objectives``).
+        Environment (used for its state/action sets and ``n_objectives``).
     priority : sequence of int
-        The lexicographic priority order, a permutation of
-        ``range(env.n_objectives)``, 0-based, highest priority first (same
-        convention as :func:`morl.algorithms.lexvi.lexicographic_vi`).
+        Lexicographic priority order, a permutation of
+        ``range(env.n_objectives)``, 0-based, highest priority first.
 
     Returns
     -------
     dict
-        Maps each non-terminal state to its chosen action. Terminal states are
-        absent.
+        Map of each non-terminal state to its chosen action. 
     """
     priority = list(priority)
     if sorted(priority) != list(range(env.n_objectives)):

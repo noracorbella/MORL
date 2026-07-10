@@ -1,4 +1,5 @@
-"""MOEnv wrapper for the Resource Gathering environment.
+"""
+MOEnv wrapper for the Resource Gathering environment.
 
 This adapts mo-gymnasium's ``resource-gathering-v0`` to the :class:`MOEnv`
 interface. Resource Gathering (RG) is a *stochastic* grid MOMDP with three
@@ -10,22 +11,22 @@ ending the episode with an ``enemy_penalty`` of ``-1``.
 
 Transition source
 -----------------
-The transition dynamics are computed *analytically* (ported from the original
-RG ``get_outcomes``): from a cell we look up the neighbour a move leads to, apply
-boundary clipping, resource pickup on entry, and the terminal/stochastic rules
-for home and enemy cells. No gym simulation/stepping is used, so the transitions
-are cheap; each ``(state, action)`` distribution is additionally cached.
+The transition dynamics are computed *analytically*: from a cell we look up the 
+neighbour a move leads to, apply boundary clipping, resource pickup on entry, and 
+the terminal/stochastic rules for home and enemy cells. No gym stepping 
+is used, so the transitions are cheap.. Each ``(state, action)`` distribution is 
+additionally cached.
 
-Terminality via a sentinel
+Terminality
 --------------------------
-RG's original model has no per-state terminal concept — termination is a property
+RG's original model has no terminal state, because termination is a property
 of a *transition* (returning home, or being killed). The :class:`MOEnv` contract
-instead expresses terminality through ``is_terminal(next_state)``. We bridge this
-with a single synthetic absorbing terminal state, :data:`TERMINAL`: every
+instead expresses terminality through ``is_terminal(next_state)``. Therefore, we create
+a single synthetic absorbing terminal state, :data:`TERMINAL`: every
 terminating outcome (entering home, or an enemy kill) is redirected to
 ``TERMINAL`` with its reward carried on the transition. ``TERMINAL`` has value
-zero and is never backed up, which reproduces the original ``done`` semantics
-exactly. In particular the home coordinates are **not** terminal, so the start
+zero and is never updated in Bellmann update, which reproduces the ``done`` semantics. 
+In particular the home coordinates are **not** terminal, so the start
 state ``(home_row, home_col, 0, 0)`` remains an ordinary acting state.
 """
 
@@ -36,20 +37,17 @@ from morl.core.env_interface import MOEnv
 
 
 # Discount factor and objective count from RG's own configuration
-# (``discount_factor = 0.7`` in the original RG_main.py; 3 objectives).
 DEFAULT_GAMMA = 0.7
 
-# Probability that stepping onto an enemy cell kills the agent. This is RG's
-# fixed configuration value; it parametrises the analytic transition logic and
-# is not a property the base gym environment exposes.
+# Probability that stepping onto an enemy cell kills the agent. 
 ENEMY_KILL_PROB = 0.1
 
-# The single synthetic absorbing terminal state (see the module docstring).
 TERMINAL = "TERMINAL"
 
 
 class ResourceGatheringEnv(MOEnv):
-    """Resource Gathering as an :class:`MOEnv`.
+    """
+    Resource Gathering as an :class:`MOEnv`.
 
     States are ``(row, col, has_gold, has_gem)`` integer tuples (all
     ``5 x 5 x 2 x 2 = 100`` of them) plus the sentinel :data:`TERMINAL`. Only
@@ -90,19 +88,24 @@ class ResourceGatheringEnv(MOEnv):
         self._transition_cache = {}
 
     def states(self):
-        """Return the 100 ordinary ``(row, col, has_gold, has_gem)`` states plus
-        the :data:`TERMINAL` sentinel."""
+        """
+        Return the 100 ordinary ``(row, col, has_gold, has_gem)`` states plus
+        the :data:`TERMINAL` sentinel.
+        """
         return self._ordinary_states + [TERMINAL]
 
     def actions(self, state):
-        """Return ``[0, 1, 2, 3]`` on ordinary states and ``[]`` on
-        :data:`TERMINAL`."""
+        """
+        Return ``[0, 1, 2, 3]`` on ordinary states and ``[]`` on
+        :data:`TERMINAL`.
+        """
         if state == TERMINAL:
             return []
         return list(range(self.n_actions))
 
     def transitions(self, state, action):
-        """Return the transition distribution for ``action`` in ``state``.
+        """
+        Return the transition distribution for ``action`` in ``state``.
 
         Ordinary outcomes are ``(prob, next_state, reward_vector)``; any
         terminating outcome (entering home, or an enemy kill) has ``next_state``
@@ -117,8 +120,8 @@ class ResourceGatheringEnv(MOEnv):
 
         row, col, has_gold, has_gem = state
 
-        # Where the move leads, with boundary clipping (agent stays if it would
-        # leave the grid).
+        # Where the move leads, but agent is forced to stay if it would
+        # otherwise leave the grid.
         dr, dc = self.dir[action]
         next_row, next_col = row + dr, col + dc
         if not (0 <= next_row < self.n_rows and 0 <= next_col < self.n_cols):
@@ -150,36 +153,24 @@ class ResourceGatheringEnv(MOEnv):
         return outcomes
 
     def is_terminal(self, state):
-        """Return ``True`` only for the :data:`TERMINAL` sentinel."""
+        """
+        Return ``True`` only for the :data:`TERMINAL` sentinel.
+        """
         return state == TERMINAL
 
     def close(self):
-        """Close the underlying gym environment."""
         self.gym_env.close()
 
-    # -- optional rendering hook (NOT part of the MOEnv contract) -------------
+    # -- rendering (NOT part of the MOEnv contract) -------------
 
     def render_policy(self, policy, n_episodes=5, max_steps=50, pause=0.4, seed=0):
-        """Visualise ``policy`` in the Resource Gathering pygame window.
+        """
+        Visualise ``policy`` in the Resource Gathering pygame window.
 
-        OPTIONAL per-environment hook -- deliberately not on the :class:`MOEnv`
-        interface; the runner calls it only if present and only when its visualise
-        flag is set. Requires a real display; not for the headless validation path.
-
-        Ported from the original ``example_execution``. It opens a fresh
-        ``render_mode="human"`` gym environment (a separate windowed env, distinct
-        from the wrapper's headless transition env) and drives it with the unified
-        state-keyed policy dict. RG is stochastic (an enemy cell kills with
-        probability 0.1), and this steps the *real* gym env, whose own RNG samples
-        that branch -- so each episode is seeded (``reset(seed=...)``) for
-        reproducibility, and several episodes are run so an enemy encounter is
-        sometimes visible. Stepping stops at the real gym episode end
-        (``terminated``/``truncated``); the wrapper's internal ``TERMINAL`` sentinel
-        never appears in a gym rollout.
-
-        State mapping: the gym observation is ``[row, col, has_gold, has_gem]``,
-        which is exactly the canonical policy key, so ``policy[state]`` looks up the
-        right action (no re-encoding needed, unlike ADS).
+        It opens a fresh ``render_mode="human"`` gym environment and drives it with the 
+        policy dict. RG is stochastic (an enemy cell kills with probability 0.1), so each 
+        episode is seeded (``reset(seed=...)``) for reproducibility, and several episodes 
+        are run. Stepping stops at the real gym episode end (``terminated``/``truncated``).
         """
         import time
 
@@ -204,8 +195,6 @@ class ResourceGatheringEnv(MOEnv):
                     done = terminated or truncated
                     state = tuple(int(x) for x in obs)
                     total += np.asarray(reward, dtype=float)
-                    # Reward is [enemy, gold, gem]; a kill is reward[0] < 0 and ends
-                    # the episode -- flag it in the trace.
                     note = "  <- KILLED by enemy" if (done and reward[0] < 0) else ""
                     print(f" t={step:2d} | state={state} | "
                           f"action={action_names[action]} | reward={reward}{note}")

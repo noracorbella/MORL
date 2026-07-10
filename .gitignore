@@ -3,30 +3,26 @@ __pycache__/
 *.py[cod]
 .venv/
 
-# Generated policy/value files (trained outputs — regenerate by running scripts)
+# Policy and value files
 *.npy
 *.pkl
 
-# Generated media
+# Media
 *.mp4
 *.avi
 videos/
 
-# Comparison module: large generated data directories
 AutomatedDriving/Comparison/allpolicies/
 AutomatedDriving/Comparison/policies/
 
-# Personal/internal notes and documents
 *.docx
 *.pdf
 *.pptx
 *.ipynb
 Bibliografia/
 
-# Historical
 FirstSteps/
 
-# Excluded environments
 OtherEnvs/BreakableBottles/
 OtherEnvs/FruitTree/
 OtherEnvs/RandomMOMDP/
@@ -41,7 +37,3 @@ OtherEnvs/timing_barplots/
 
 
 validation/
-morl/core/validate_env.py
-environments/automated_driving/check_wrapper.py
-environments/deep_sea_treasure/check_wrapper.py
-environments/resource_gathering/check_wrapper.py

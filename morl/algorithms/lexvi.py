@@ -1,15 +1,7 @@
-"""Lexicographic Value Iteration (LexVI) for multi-objective MDPs.
+"""
+Lexicographic Value Iteration (LexVI) for MOMDPs.
 
-LexVI solves an MOMDP under a *lexicographic* preference over the objectives:
-objectives are ranked by priority, and an action is preferred if it is better on
-the highest-priority objective; ties there are broken by the next objective, and
-so on. Unlike CHVI it commits to one priority order and carries a single
-vector value per state (it is the scalar-style, non-hull algorithm — the old
-DST "LGVI-LexMax").
-
-It depends only on the :class:`~morl.core.env_interface.MOEnv` contract.
-
-The public entry point is :func:`lexicographic_vi`.
+This algorithm depends only on the :class:`~morl.core.env_interface.MOEnv`.
 """
 
 import numpy as np
@@ -19,11 +11,12 @@ from morl.core.env_interface import MOEnv
 
 
 def lex_max(q_vectors, priority, tol=1e-9):
-    """Return the index of the lexicographically greatest action value.
+    """
+    Return the index of the lexicographically greatest action value.
 
     Compares the rows of ``q_vectors`` under the lexicographic order given by
     ``priority``: candidates are first narrowed to those maximising the
-    highest-priority objective (within ``tol``), then the next objective breaks
+    highest priority objective (within ``tol``), then the next objective breaks
     remaining ties, and so on. If a tie survives all objectives the
     lowest-indexed remaining action is returned.
 
@@ -32,8 +25,7 @@ def lex_max(q_vectors, priority, tol=1e-9):
     q_vectors : numpy array of shape ``(n_actions, n_objectives)``
         The candidate action-value vectors, one row per action.
     priority : sequence of int
-        Objective indices, highest priority first (see
-        :func:`lexicographic_vi` for the full convention).
+        Objective indices, highest priority first.
     tol : float, optional
         Tolerance within which two objective values count as tied.
 
@@ -55,40 +47,33 @@ def lex_max(q_vectors, priority, tol=1e-9):
 
 
 def lexicographic_vi(env: MOEnv, priority, theta=0.01):
-    """Run Lexicographic Value Iteration and return an optimal policy and values.
+    """
+    Run Lexicographic Value Iteration and return an optimal policy and values.
 
-    Vector-valued Value Iteration whose per-state action selection is a
-    lexicographic argmax (:func:`lex_max`) under ``priority``. Updates are
-    performed in place (Gauss-Seidel) over the non-terminal states; terminal
-    states are never backed up and have the zero vector value (the reward for
-    entering a terminal state is carried on the incoming transition, per the
-    :class:`MOEnv` contract). Convergence uses the max-norm: the sweep stops once
-    the largest per-component change in any state's value vector drops below
-    ``theta`` (consistent with :func:`morl.algorithms.vi.value_iteration`).
+    Vector valued Value Iteration with lexicographic argmax (:func:`lex_max`) 
+    under ``priority``. 
+    Convergence uses the max-norm: the sweep stops once the largest per-component
+    change in any state's value vector drops below ``theta``.
 
     Parameters
     ----------
     env : MOEnv
-        The environment. Only the :class:`MOEnv` interface is used; the priority
-        order is *not* read from ``env``.
+        Environment. The priority order is *not* read from ``env``.
     priority : sequence of int
-        The lexicographic priority order over objectives, given as a permutation
+        Lexicographic priority order over objectives, given as a permutation
         of ``range(env.n_objectives)`` using 0-based objective indices, **highest
-        priority first**. For example, with two objectives ``[0, 1]`` ranks
-        objective 0 above objective 1, and ``[1, 0]`` ranks objective 1 above
-        objective 0.
+        priority first**. 
     theta : float, optional
-        Max-norm convergence threshold. Defaults to ``0.01``, matching the
-        original DST configuration.
+        Max-norm convergence threshold. Default is ``0.01``.
 
     Returns
     -------
     policy : dict
-        Maps each non-terminal state to its lexicographically best action.
-        Terminal states are absent.
+        Map of non-terminal states to its lexicographically best action.
+        Terminal states are not included.
     Q : dict
-        Maps each ``(state, action)`` pair (over non-terminal states) to its
-        converged vector action value. Terminal states are absent.
+        Map of each ``(state, action)`` pair (over non-terminal states) to its
+        converged vector action value.
     """
     priority = list(priority)
     if sorted(priority) != list(range(env.n_objectives)):
@@ -102,11 +87,11 @@ def lexicographic_vi(env: MOEnv, priority, theta=0.01):
 
     non_terminal_states = [s for s in env.states() if not env.is_terminal(s)]
 
-    # Vector value function; terminal states are implicitly the zero vector.
+    # Vector value function. Terminal states are implicitly the zero vector.
     V = {s: np.zeros(n_objectives) for s in non_terminal_states}
 
     def action_value(s, a):
-        # Vector Q(s, a); terminal successors contribute only their reward.
+        # Vector Q(s, a). Terminal successors contribute only their reward.
         q = np.zeros(n_objectives)
         for prob, next_state, reward_vector in env.transitions(s, a):
             reward_vector = np.asarray(reward_vector, dtype=float)
@@ -136,7 +121,7 @@ def lexicographic_vi(env: MOEnv, priority, theta=0.01):
         if delta < theta:
             break
 
-    # Final sweep over the converged values: store every vector action value in
+    # Final sweep over the converged values. We store every vector action value in
     # Q and extract the lexicographic policy from it.
     Q = {}
     policy = {}

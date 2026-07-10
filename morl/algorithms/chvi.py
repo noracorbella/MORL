@@ -1,21 +1,11 @@
-"""Convex Hull Value Iteration (CHVI) for multi-objective MDPs.
+"""Convex Hull Value Iteration (CHVI) for MOMDPs.
 
-CHVI is the multi-objective analogue of Value Iteration: instead of a single
-scalar value per state it maintains, for every state-action pair, the convex
-hull of the Pareto-optimal value vectors achievable from there (a "Q-ring").
-From this single computation an optimal policy can be recovered for *any* linear
-scalarisation, without re-solving.
+This algorithm depends only on the :class:`~morl.core.env_interface.MOEnv` 
+contract and the hull operations in :mod:`morl.core.hull_ops`.
 
-It depends only on the :class:`~morl.core.env_interface.MOEnv` contract and on
-the shared hull algebra in :mod:`morl.core.hull_ops`.
-
-The public entry point is :func:`convexhull_vi`.
-
-Policy extraction is intentionally *not* done inside the algorithm. A convex
-hull corresponds to a whole set of optimal policies (one per region of weight
-space), not to a single greedy action, so :func:`convexhull_vi` returns
-``policy = None``; a caller extracts a concrete policy from the returned Q-ring
-as a separate step, choosing the weight vector (or other rule) it wants.
+Policy extraction is *not* done inside the algorithm, so :func:`convexhull_vi` 
+returns ``policy = None``. A caller extracts a concrete policy from the returned 
+Q-ring as a separate step.
 """
 
 import numpy as np
@@ -32,50 +22,42 @@ from morl.core.hull_ops import (
 
 
 def convexhull_vi(env: MOEnv, theta=0.01):
-    """Run Convex Hull Value Iteration and return ``(None, Q)``.
+    """
+    Run Convex Hull Value Iteration and return ``(None, Q)``.
 
-    Performs hull-valued Bellman backups in place (Gauss-Seidel) over the
-    non-terminal states until convergence. For each state-action pair the
-    action hull is
+    For each state-action pair the action hull is
 
         ``Q(s, a) = hull( sum_outcomes prob * (reward + gamma * V(next_state)) )``
 
-    where ``V(next_state)`` is the state hull of the successor (the zero hull for
-    a terminal successor, so its reward is carried unchanged). Convergence uses
-    the max-norm hull difference over the per-state hulls, after putting vertices
-    in canonical order.
+    where ``V(next_state)`` is the state hull of the successor (the zero for a 
+    terminal successor). Convergence uses,the max-norm hull difference over the 
+    per-state hulls, after putting vertices in canonical order.
 
     Parameters
     ----------
     env : MOEnv
         The environment. Only the :class:`MOEnv` interface is used.
     theta : float, optional
-        Max-norm convergence threshold. Defaults to ``0.01``, matching the
-        original DST configuration.
+        Max-norm convergence threshold. Default is ``0.01``.
 
     Returns
     -------
     policy : None
-        Always ``None``. A convex hull represents a set of optimal policies
-        rather than one greedy action, so policy extraction is left to the
-        caller as a separate step (see the module docstring).
+        Policy extraction is left as a separate step.
     Q_hulls : dict
-        The hull-valued Q-ring: maps each ``(state, action)`` pair (over
-        non-terminal states) to a numpy array of the Pareto-optimal value-vector
-        vertices of its convex hull. Named ``Q_hulls`` to distinguish it from
-        VI's scalar ``Q``; LHVI returns a Q-ring of the same shape. Terminal
-        states are absent.
+        map of each ``(state, action)`` pair (of non-terminal states) to an 
+        array of the optimal value-vector vertices of its convex hull. 
     """
     gamma = env.gamma
     n_objectives = env.n_objectives
 
     non_terminal_states = [s for s in env.states() if not env.is_terminal(s)]
 
-    # V-ring: the convex hull of Pareto-optimal value vectors per state,
+    # V is the convex hull of optimal value vectors per state,
     # initialised to the single zero vector.
     V = {s: np.zeros((1, n_objectives)) for s in non_terminal_states}
 
-    # Q-ring: the hull per (state, action).
+    # Q_hulls is the hull per (state, action).
     Q_hulls = {}
     for s in non_terminal_states:
         for a in env.actions(s):
@@ -92,13 +74,12 @@ def convexhull_vi(env: MOEnv, theta=0.01):
                 v_old = V[s].copy()
 
                 for a in env.actions(s):
-                    # Build each outcome's reward-translated successor hull.
+                    # Build each outcome's reward translated successor hull.
                     outcomes = []
                     for prob, next_state, reward_vector in env.transitions(s, a):
                         reward_vector = np.asarray(reward_vector, dtype=float)
                         if env.is_terminal(next_state):
-                            # Terminal successor: value is the zero hull, so the
-                            # contribution is just the reward vector.
+                            # Terminal state: contribution is just the reward vector.
                             outcome_hull = np.array([reward_vector])
                         else:
                             outcome_hull = translate_hull(reward_vector, gamma, V[next_state])
@@ -120,7 +101,7 @@ def convexhull_vi(env: MOEnv, theta=0.01):
                 new_V = canonical_order(new_V)
                 V[s] = new_V
 
-                # Track average hull size over the per-state V-ring hulls.
+                # Track average hull size over the per-state V hulls.
                 total_hull_vertices += len(new_V)
                 num_hulls += 1
 
