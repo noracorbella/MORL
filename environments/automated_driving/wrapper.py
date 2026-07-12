@@ -164,6 +164,7 @@ class AutomatedDrivingEnv(MOEnv):
         return state[0] in self._goal_cells
 
     def close(self):
+        """Empty"""
 
     # -- rendering (NOT part of the MOEnv contract) -------------
 

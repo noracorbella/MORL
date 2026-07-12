@@ -40,17 +40,17 @@ ALGORITHM   = "lhvi"       # vi | chvi | lexvi | lhvi
 
 # --- algorithm settings ---
 WEIGHTS  = [1, 100, 10000]      # VI only: scalarisation weights (len must == n_objectives)
-PRIORITY = [1, 0, 2]        # LexVI: the lex order; CHVI/LHVI: order used for policy extraction
+PRIORITY = [1, 2, 0]        # LexVI: the lex order; CHVI/LHVI: order used for policy extraction
 THETA    = 0.01          # convergence threshold
 GAMMA    = None          # None -> use the wrapper's built-in default for that env
 
 # --- run control ---
-MODE      = "train"      # train (run the algorithm, then save) | load (read a saved policy)
-EVALUATE  = True         # roll out the resulting policy and report vector return
-N_EVAL_EPISODES = 5
+MODE      = "load"      # train (run the algorithm, then save) | load (read a saved policy)
+EVALUATE  = False         # roll out the resulting policy and report vector return
+N_EVAL_EPISODES = 1000
 MAX_STEPS       = 200
 EVAL_SEED       = 0      # seeds the rollout sampling so stochastic-env eval is reproducible
-POLICY_PATH     = None   # None -> auto path under experiments/policies/
+POLICY_PATH     = None   # None -> experiments/policies/ path
 VISUALISE       = True  # local only: render the policy in the env's pygame window
                          # (needs a real display; skipped if the env has no renderer)
 # ========================================================
@@ -92,7 +92,7 @@ def start_state_hull(q_hulls, env, kind):
 
 def run_algorithm(env):
     """
-    Run the algorithm and return ``(policy, all_policies, v_start, start_hull)``.
+    Run the algorithm and return ``(policy, all_policies, v_start, start_hull, q_hulls)``.
 
     ``policy`` is the dict (state -> action) used for evaluation.
     ``all_policies`` is ``None`` except for LHVI, where it is
@@ -101,26 +101,30 @@ def run_algorithm(env):
     ``v_start`` is the analytic value at ``env.start_state`` for the scalar/vector
     algorithms (VI scalar, LexVI vector), else ``None``. ``start_hull`` is the
     start-state value hull for the hull algorithms (CHVI/LHVI), else ``None``.
-    Both are read out of the already-computed Q/hulls -- no extra solving.
+    ``q_hulls`` is the full Q-ring for CHVI/LHVI, else ``None`` -- returned so
+    ``main`` can persist it, letting ``load`` extract a policy for ANY priority
+    later without re-solving (VI/LexVI have no such reusable artifact: their Q
+    table is computed under a fixed weight/priority baked into convergence
+    itself, so there is nothing cheap to re-extract).
     """
     s0 = env.start_state
 
     if ALGORITHM == "vi":
         policy, Q = value_iteration(env, weights=WEIGHTS, theta=THETA)
         v_start = max(Q[(s0, a)] for a in env.actions(s0))  # V(s0) = max_a Q(s0,a)
-        return policy, None, v_start, None
+        return policy, None, v_start, None, None
 
     if ALGORITHM == "lexvi":
         policy, Q = lexicographic_vi(env, priority=PRIORITY, theta=THETA)
         v_start = Q[(s0, policy[s0])]  # vector value of the chosen action at s0
-        return policy, None, v_start, None
+        return policy, None, v_start, None, None
 
     if ALGORITHM == "chvi":
         # Hull-valued: extract a concrete policy from the Q-hull via the
         # lex-max operation for PRIORITY.
         _none, q_hulls = convexhull_vi(env, theta=THETA)
         policy = extract_lex_policy(q_hulls, env, PRIORITY)
-        return policy, None, None, start_state_hull(q_hulls, env, "chvi")
+        return policy, None, None, start_state_hull(q_hulls, env, "chvi"), q_hulls
 
     if ALGORITHM == "lhvi":
         _none, q_hulls = lexicographic_hull_vi(env, theta=THETA)
@@ -129,7 +133,7 @@ def run_algorithm(env):
             for order in permutations(range(env.n_objectives))
         }
         policy = all_policies[tuple(PRIORITY)]
-        return policy, all_policies, None, start_state_hull(q_hulls, env, "lhvi")
+        return policy, all_policies, None, start_state_hull(q_hulls, env, "lhvi"), q_hulls
 
     raise ValueError(f"Unknown ALGORITHM {ALGORITHM!r}")
 
@@ -184,7 +188,7 @@ def print_start_hull(start_hull, start_state):
     print(f"Number of vertices: {len(start_hull)}")
     print("Vertices (Pareto-optimal value vectors):")
     for v in start_hull:
-        print(f"  {np.array2string(np.asarray(v), precision=4)}")
+        print(f"  {np.array2string(np.asarray(v), precision=4, floatmode='fixed', suppress_small=True)}")
     print('=' * 60)
 
 
@@ -197,33 +201,49 @@ def print_analytic_v_start(algorithm, priority, v_start, start_hull, start_state
     if algorithm == "vi":
         print(f"  scalar V(start) = {v_start:.4f}")
     elif algorithm == "lexvi":
-        print(f"  vector V(start) = {np.array2string(np.asarray(v_start), precision=4)}")
+        print(f"  vector V(start) = {np.array2string(np.asarray(v_start), precision=4, floatmode='fixed', suppress_small=True)}")
     else:  # chvi / lhvi: the vertex the extracted policy for PRIORITY lands on
         vertex = start_hull[lex_max(start_hull, priority)]
         print(f"  vertex for priority {priority} = "
-              f"{np.array2string(np.asarray(vertex), precision=4)}")
+              f"{np.array2string(np.asarray(vertex), precision=4, floatmode='fixed', suppress_small=True)}")
 
 
 def default_policy_path():
     """
-    Auto path for the policy file, from env/algorithm/priority-or-weights.
+    Auto path for the policy file, from env/algorithm and, for algorithms whose
+    solve is tied to one priority/weight vector, that priority or weight.
+
+    CHVI and LHVI save the priority-INDEPENDENT ``q_hulls`` (one solve serves
+    every priority), so their filename does not encode PRIORITY -- the same file
+    is found again by ``load`` no matter what PRIORITY is currently configured.
+    VI (tied to WEIGHTS) and LexVI (tied to PRIORITY, baked into its convergence)
+    have no such reusable artifact, so their filename keeps encoding it.
     """
-    tag = (
-        "-".join(map(str, WEIGHTS)) if ALGORITHM == "vi"
-        else "-".join(map(str, PRIORITY))
-    )
+    if ALGORITHM == "vi":
+        tag = "-".join(map(str, WEIGHTS))
+    elif ALGORITHM == "lexvi":
+        tag = "-".join(map(str, PRIORITY))
+    else:  # chvi, lhvi
+        tag = "hulls"
     return os.path.join(
         REPO_ROOT, "experiments", "policies", f"{ENVIRONMENT}_{ALGORITHM}_{tag}.pkl"
     )
 
 
-def save_policy(path, policy, all_policies, gamma, v_start, start_hull):
+def save_policy(path, policy, all_policies, gamma, v_start, q_hulls):
     """
     Pickle the policy plus the metadata needed to reload it correctly (notably
     ``gamma``, so ``load`` rebuilds the env identically).
-    For LHVI, all priority orders' policies are stored under ``all_policies``.
-    The analytic ``v_start`` (scalar/vector algorithms) or ``start_hull`` (hull
-    algorithms) is saved too, so ``load`` can report V(start) without re-solving.
+
+    For CHVI/LHVI, the full ``q_hulls`` Q-ring is pickled instead of a frozen
+    start-state hull: ``load`` derives the start-state hull and extracts a policy
+    FRESH from ``q_hulls`` for whatever PRIORITY is currently configured, so
+    switching priorities never re-solves and never risks replaying a value that
+    was actually computed under a different priority. For LHVI, ``all_policies``
+    (every priority order's policy, already computed in the one solve) is kept
+    too, for convenience. VI/LexVI have no such reusable artifact -- their Q
+    table is computed under a fixed weight/priority baked into convergence
+    itself -- so ``v_start`` and ``policy`` are simply saved and replayed as-is.
     """
     os.makedirs(os.path.dirname(path), exist_ok=True)
     blob = {
@@ -236,7 +256,7 @@ def save_policy(path, policy, all_policies, gamma, v_start, start_hull):
         "policy": policy,
         "all_policies": all_policies,  # {priority_tuple: policy_dict} for LHVI, else None
         "v_start": v_start,            # analytic V(start) for VI/LexVI, else None
-        "start_hull": start_hull,      # start-state value hull for CHVI/LHVI, else None
+        "q_hulls": q_hulls,            # full Q-ring for CHVI/LHVI, else None
     }
     with open(path, "wb") as f:
         pickle.dump(blob, f)
@@ -256,7 +276,9 @@ def load_policy(path):
 def main():
     path = POLICY_PATH if POLICY_PATH is not None else default_policy_path()
 
-    print(f"Environment: {ENVIRONMENT} | Algorithm: {ALGORITHM} | Mode: {MODE}")
+    print("="*60)
+    print(f"Environment: {ENVIRONMENT} | Algorithm: {ALGORITHM} | Mode: {MODE}")    
+    print("="*60)
 
     if MODE == "train":
         env = make_env(ENVIRONMENT, GAMMA)
@@ -265,20 +287,34 @@ def main():
             print(f"Weights = {WEIGHTS}")
         else:
             print(f"Priority = {PRIORITY}")
-        policy, all_policies, v_start, start_hull = run_algorithm(env)
-        save_policy(path, policy, all_policies, env.gamma, v_start, start_hull)
+        policy, all_policies, v_start, start_hull, q_hulls = run_algorithm(env)
+        save_policy(path, policy, all_policies, env.gamma, v_start, q_hulls)
 
     elif MODE == "load":
         blob = load_policy(path)
         # Rebuild the env with the SAME gamma the policy was trained under.
         env = make_env(ENVIRONMENT, blob["gamma"])
         print(f"Discount gamma = {env.gamma} (from saved policy)")
-        if ALGORITHM == "lhvi" and blob.get("all_policies"):
-            policy = blob["all_policies"][tuple(PRIORITY)]
+
+        if ALGORITHM in ("chvi", "lhvi"):
+            q_hulls = blob.get("q_hulls")
+            if q_hulls is None:
+                print("(this saved policy has no q_hulls -- it predates hull "
+                      "persistence; falling back to its frozen policy, which was "
+                      "extracted for whatever PRIORITY it was trained with)")
+                policy = blob["policy"]
+                start_hull = None
+            else:
+                # Cheap: extract fresh for the CURRENT PRIORITY, no re-solve.
+                print(f"Extracting policy for priority {PRIORITY} from the saved "
+                      f"q_hulls (no re-solve)...")
+                policy = extract_lex_policy(q_hulls, env, PRIORITY)
+                start_hull = start_state_hull(q_hulls, env, ALGORITHM)
+            v_start = None
         else:
             policy = blob["policy"]
-        v_start = blob.get("v_start")
-        start_hull = blob.get("start_hull")
+            v_start = blob.get("v_start")
+            start_hull = None
 
     else:
         raise ValueError(f"Unknown MODE {MODE!r}")
@@ -304,8 +340,8 @@ def main():
         mean_vec = results["mean_return"]
         std_vec = results["std_return"]
         print(f"Mean episode length : {results['mean_length']:.2f}")
-        print(f"Mean discounted vector return : {np.array2string(mean_vec, precision=4)}")
-        print(f"Std  discounted vector return : {np.array2string(std_vec, precision=4)}")
+        print(f"Mean discounted vector return : {np.array2string(mean_vec, precision=4, floatmode='fixed', suppress_small=True)}")
+        print(f"Std  discounted vector return : {np.array2string(std_vec, precision=4, floatmode='fixed', suppress_small=True)}")
         if ALGORITHM == "vi":
             w = np.array(WEIGHTS, dtype=float)
             scal = np.dot(results["episode_returns"], w)

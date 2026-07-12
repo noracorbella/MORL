@@ -1,29 +1,22 @@
-"""H2 timing benchmark for the unified MORL algorithms.
+"""
+Timing benchmark.
 
-Reproduces the OLD per-environment benchmark measurement (the ``*_Benchmark.py``
-files and AutomatedDriving's top-level ``Benchmark.py``) on the unified,
-MOEnv-only algorithms, across all five environments. It is a faithful port of the
-old measurement, not a new methodology; see the notes below for the few places
-the unified structure forces a (documented) difference.
+Edit the CONFIGURATION block below to choose an environment and an algorithm,
+then run this file to time that one case.
 
-Three algorithms are timed -- the weight-free MORL trio, exactly as the old code:
+Three algorithms can be timed (VI is weight-based and not part of this H2 timing):
 
   * CHVI   : one convex-hull solve, then extract d! lexicographic policies.
   * LexVI  : d! independent lexicographic solves (one per priority order).
   * LHVI   : one lexicographic-hull solve producing all d! policies in one pass.
 
-(Scalar VI is weight-based and is not part of this comparison -- the old
-benchmarks do not time it either.)
-
-Measurement, matched to the old code:
-  * wall-clock ``time.time()``, reported in seconds to 3 decimals;
-  * a single run, no warm-up, no averaging over repeats;
+Measurement
+  * wall-clock ``time.time()``
+  * a single run that builds the model from scratch
   * per-environment theta / gamma / d!:
         DST, DSTc, DSTm : theta=0.01, gamma=0.99, d! = 2! = 2
         RG              : theta=0.01, gamma=0.7,  d! = 3! = 6
         ADS             : theta=0.01, gamma=0.7,  d! = 3! = 6
-    (theta is 0.01 everywhere, matching the top-level AutomatedDriving/Benchmark.py
-    -- NOT the Comparison/ folder, which is theta-inconsistent 0.01 vs 1.0.)
 
 model_build handling (the one documented structural difference):
   The old code built the transition model *inside* the timed region (lazily, in
@@ -31,11 +24,12 @@ model_build handling (the one documented structural difference):
   transitions(), ADS precomputes it in the constructor -- so here model_build is
   timed as its OWN line: construct the wrapper and force a full transitions sweep
   from scratch (ADS built with use_cache=False for a from-scratch, comparable
-  number). The H2 head-to-head is then run on convergence + extraction with
-  model_build EXCLUDED (fairer across all three, since the old code baked
-  model_build into CHVI's number but broke it out for LHVI). A ``combined`` figure
-  (model_build + convergence) is also reported so the unified numbers cross-check
-  against the old model-build-inclusive ones.
+  number). The reported ``algo total`` (convergence + extraction) EXCLUDES
+  model_build, so it is the fair number for comparing CHVI/LexVI/LHVI against
+  each other. A ``combined`` figure (model_build + convergence + extraction) is
+  also reported: the full cost of building the model from scratch, solving, and
+  extracting every policy -- this is what cross-checks against the old
+  benchmark's headline ``TOTAL TIME`` (which also included all three).
 """
 
 import os
@@ -57,13 +51,14 @@ from morl.algorithms.lhvi import lexicographic_hull_vi, extract_lex_policy
 
 
 # ===================== CONFIGURATION =====================
-ENVS = ["dst", "dstc", "dstm", "rg", "ads"]   # subset to run (edit to skip slow ADS)
-THETA = 0.01                                   # same for every env (top-level ADS Benchmark)
+ENVIRONMENT = "rg"      # dst | dstc | dstm | rg | ads
+ALGORITHM   = "lexvi"     # chvi | lexvi | lhvi 
+THETA       = 0.01       # convergence threshold
 # ========================================================
 
-# Wrapper factories. ADS is built from scratch (use_cache=False) so its model_build
-# is the real ~90 s precompute, comparable to the old MNS build; the algorithms then
-# run on the resulting in-memory transition cache.
+# env-name -> wrapper factory. ADS is built from scratch (use_cache=False) so its
+# model_build is the real ~90 s precompute, comparable to the old MNS build; the
+# algorithm then runs on the resulting in-memory transition cache.
 ENV_FACTORIES = {
     "dst":  lambda: DeepSeaTreasureEnv(env_id="deep-sea-treasure-v0"),
     "dstc": lambda: DeepSeaTreasureEnv(env_id="deep-sea-treasure-concave-v0"),
@@ -136,90 +131,50 @@ def _fmt_orders(d):
     return "  ".join(f"{list(k)}: {v:.3f}" for k, v in d.items())
 
 
-def run_env(name):
-    """Run the three benchmarks on one environment and return its results dict."""
-    env, non_terminal, orders, model_build = build_model_timed(name)
-    d = len(orders)
-    res = {
-        "gamma": env.gamma, "n_objectives": env.n_objectives, "d_factorial": d,
-        "n_non_terminal": len(non_terminal), "model_build": model_build,
-        "chvi": bench_chvi(env, orders),
-        "lexvi": bench_lexvi(env, orders),
-        "lhvi": bench_lhvi(env, orders),
-    }
-    env.close()
-    return res
-
-
-def print_env_table(name, r):
-    mb = r["model_build"]
-    chvi, lexvi, lhvi = r["chvi"], r["lexvi"], r["lhvi"]
-    chvi_algo = chvi["convergence"] + chvi["extraction_total"]
-    lhvi_algo = lhvi["convergence"] + lhvi["extraction_total"]
-
-    print(f"\n{'=' * 72}")
-    print(f"ENV: {name}   (theta={THETA}, gamma={r['gamma']}, d!={r['d_factorial']}, "
-          f"non-terminal states={r['n_non_terminal']})")
-    print('=' * 72)
-    print(f"model_build (from scratch): {mb:.3f} s   [EXCLUDED from H2 comparison]")
-
-    print("\nB1 CHVI  (one solve -> extract d! policies):")
-    print(f"  convergence            : {chvi['convergence']:.3f} s")
-    print(f"  extraction total       : {chvi['extraction_total']:.3f} s   "
-          f"(per order: {_fmt_orders(chvi['extraction'])})")
-    print(f"  algo total (conv+extr) : {chvi_algo:.3f} s")
-    print(f"  combined (model+conv)  : {mb + chvi['convergence']:.3f} s   "
-          f"[~ old CHVI model-build-inclusive number]")
-
-    print("\nB2 LexVI  (d! independent solves):")
-    print(f"  per order              : {_fmt_orders(lexvi['runs'])}")
-    print(f"  total                  : {lexvi['total']:.3f} s")
-    print(f"  average per run (/{r['d_factorial']})   : {lexvi['average']:.3f} s")
-    if name in ("rg", "ads"):
-        print(f"    note: old {name.upper()} per-env benchmark divided by 2 over "
-              f"{r['d_factorial']} runs (copy-paste bug); this /{r['d_factorial']} "
-              f"average differs for that reason, not a timing change.")
-
-    print("\nB3 LHVI  (one solve -> all d! policies):")
-    print(f"  convergence            : {lhvi['convergence']:.3f} s")
-    print(f"  extraction total       : {lhvi['extraction_total']:.3f} s   "
-          f"(per order: {_fmt_orders(lhvi['extraction'])})")
-    print(f"  algo total (conv+extr) : {lhvi_algo:.3f} s")
-    print(f"  combined (model+conv)  : {mb + lhvi['convergence']:.3f} s")
-
-    lex_total = lexvi["total"]
-    lhvi_vs_lex = lex_total / lhvi_algo if lhvi_algo > 0 else float("nan")
-    winner = "LHVI faster" if lhvi_vs_lex > 1 else "LexVI faster"
-    print("\nH2  (algorithm time, model_build excluded):")
-    print(f"  LHVI  one-solve-all-orders : {lhvi_algo:.3f} s")
-    print(f"  LexVI d! independent runs  : {lex_total:.3f} s")
-    print(f"  ratio LexVI_total / LHVI_algo = {lhvi_vs_lex:.2f}  "
-          f"(>1 means LHVI wins)  -> {winner}")
-    print(f"  CHVI  one-solve-all-orders : {chvi_algo:.3f} s   "
-          f"(LHVI/CHVI algo ratio = {lhvi_algo / chvi_algo:.2f})")
-
-
 def main():
-    print("Unified H2 timing benchmark  (single run, wall-clock seconds)")
-    results = {}
-    for name in ENVS:
-        print(f"\n>>> running {name} ...", flush=True)
-        results[name] = run_env(name)
-        print_env_table(name, results[name])
+    print(f"Environment: {ENVIRONMENT} | Algorithm: {ALGORITHM}")
 
-    print(f"\n{'=' * 72}")
-    print("H2 SUMMARY  (algorithm time; LHVI one solve for all d! vs d! LexVI runs)")
-    print('=' * 72)
-    print(f"{'env':6} {'LHVI algo':>12} {'LexVI total':>12} {'CHVI algo':>12} "
-          f"{'LexVI/LHVI':>12}  (>1: LHVI wins)")
-    for name in ENVS:
-        r = results[name]
-        lhvi_algo = r["lhvi"]["convergence"] + r["lhvi"]["extraction_total"]
-        chvi_algo = r["chvi"]["convergence"] + r["chvi"]["extraction_total"]
-        lex_total = r["lexvi"]["total"]
-        ratio = lex_total / lhvi_algo if lhvi_algo > 0 else float("nan")
-        print(f"{name:6} {lhvi_algo:12.3f} {lex_total:12.3f} {chvi_algo:12.3f} "
-              f"{ratio:12.2f}")
+    env, non_terminal, orders, model_build = build_model_timed(ENVIRONMENT)
+    d = len(orders)
+    print(f"theta={THETA}, gamma={env.gamma}, d!={d}, non-terminal states={len(non_terminal)}")
+    print(f"model_build (from scratch): {model_build:.3f} s")
+
+    if ALGORITHM == "chvi":
+        r = bench_chvi(env, orders)
+        algo_total = r["convergence"] + r["extraction_total"]
+        print("\nCHVI  (one solve -> extract d! policies):")
+        print(f"  convergence                : {r['convergence']:.3f} s")
+        print(f"  extraction total           : {r['extraction_total']:.3f} s   "
+              f"(per order: {_fmt_orders(r['extraction'])})")
+        print(f"  algo total (conv+extr)     : {algo_total:.3f} s")
+        print(f"  combined (model+conv+extr) : {model_build + algo_total:.3f} s   "
+              f"[full: build model from scratch + solve + extract all policies; "
+              f"matches old benchmark's TOTAL TIME]")
+
+    elif ALGORITHM == "lexvi":
+        r = bench_lexvi(env, orders)
+        print("\nLexVI  (d! independent solves):")
+        print(f"  per order              : {_fmt_orders(r['runs'])}")
+        print(f"  total                  : {r['total']:.3f} s")
+        print(f"  average per run (/{d})   : {r['average']:.3f} s")
+        print(f"  combined (model+total) : {model_build + r['total']:.3f} s   ")
+
+    elif ALGORITHM == "lhvi":
+        r = bench_lhvi(env, orders)
+        algo_total = r["convergence"] + r["extraction_total"]
+        print("\nLHVI  (one solve -> all d! policies):")
+        print(f"  convergence                : {r['convergence']:.3f} s")
+        print(f"  extraction total           : {r['extraction_total']:.3f} s   "
+              f"(per order: {_fmt_orders(r['extraction'])})")
+        print(f"  algo total (conv+extr)     : {algo_total:.3f} s")
+        print(f"  combined (model+conv+extr) : {model_build + algo_total:.3f} s   "
+              f"[full: build model from scratch + solve + extract all policies; "
+              f"matches old benchmark's TOTAL TIME]")
+
+    else:
+        raise ValueError(f"Unknown ALGORITHM {ALGORITHM!r}")
+
+    env.close()
 
 
 if __name__ == "__main__":
