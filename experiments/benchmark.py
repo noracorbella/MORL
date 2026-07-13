@@ -17,19 +17,6 @@ Measurement
         DST, DSTc, DSTm : theta=0.01, gamma=0.99, d! = 2! = 2
         RG              : theta=0.01, gamma=0.7,  d! = 3! = 6
         ADS             : theta=0.01, gamma=0.7,  d! = 3! = 6
-
-model_build handling (the one documented structural difference):
-  The old code built the transition model *inside* the timed region (lazily, in
-  iteration 1). The unified wrappers own the model -- DST/RG cache it lazily in
-  transitions(), ADS precomputes it in the constructor -- so here model_build is
-  timed as its OWN line: construct the wrapper and force a full transitions sweep
-  from scratch (ADS built with use_cache=False for a from-scratch, comparable
-  number). The reported ``algo total`` (convergence + extraction) EXCLUDES
-  model_build, so it is the fair number for comparing CHVI/LexVI/LHVI against
-  each other. A ``combined`` figure (model_build + convergence + extraction) is
-  also reported: the full cost of building the model from scratch, solving, and
-  extracting every policy -- this is what cross-checks against the old
-  benchmark's headline ``TOTAL TIME`` (which also included all three).
 """
 
 import os
