@@ -1,7 +1,5 @@
 """
 Check that the Automated Driving wrapper satisfies the MOEnv contract.
-
-This instantiates the ADS wrapper and runs the generic contract checks.
 """
 
 import os

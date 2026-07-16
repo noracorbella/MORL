@@ -1,7 +1,5 @@
 """
 Check that the Deep Sea Treasure wrapper satisfies the MOEnv contract.
-
-This instantiates the DST wrapper and runs the generic contract checks. 
 """
 
 import os

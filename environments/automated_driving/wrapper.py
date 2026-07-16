@@ -1,9 +1,9 @@
 """
 MOEnv wrapper for the Automated Driving System (ADS) environment.
 
-This adapts the ADS simulator (bundled in the ``simulator/``
-directory) to the :class:`MOEnv` interface. ADS is a MOMDP with three
-objectives, ``[vehicle_goal, internal_safety, external_safety]``.
+This adapts the ADS simulator (in the ``simulator/`` directory) 
+to :class:`MOEnv`. ADS is a MOMDP with three objectives, 
+``[vehicle_goal, internal_safety, external_safety]``.
 
 This wrapper imports that ``Environment`` class directly and drives it with
 ``reset``/``step``.

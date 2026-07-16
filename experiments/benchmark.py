@@ -43,9 +43,6 @@ ALGORITHM   = "lexvi"     # chvi | lexvi | lhvi
 THETA       = 0.01       # convergence threshold
 # ========================================================
 
-# env-name -> wrapper factory. ADS is built from scratch (use_cache=False) so its
-# model_build is the real ~90 s precompute, comparable to the old MNS build; the
-# algorithm then runs on the resulting in-memory transition cache.
 ENV_FACTORIES = {
     "dst":  lambda: DeepSeaTreasureEnv(env_id="deep-sea-treasure-v0"),
     "dstc": lambda: DeepSeaTreasureEnv(env_id="deep-sea-treasure-concave-v0"),
@@ -58,11 +55,6 @@ ENV_FACTORIES = {
 def build_model_timed(name):
     """Construct the wrapper and force the full transition model to be built from
     scratch, returning ``(env, non_terminal_states, orders, model_build_seconds)``.
-
-    The sweep over every (state, action) forces the lazy cache for DST/RG (and is a
-    cheap pass over the already-precomputed ADS cache), so model_build is the
-    from-scratch model-build cost, uniform across environments and comparable to the
-    old benchmark's model-build phase.
     """
     t0 = time.time()
     env = ENV_FACTORIES[name]()

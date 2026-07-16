@@ -75,13 +75,8 @@ def make_env(name, gamma):
 
 
 def start_state_hull(q_hulls, env, kind):
-    """The value hull at the initial state: the achievable value-vector frontier
-    from ``env.start_state``, taken over the union of that state's action hulls.
-
-    Reproduces the old ``get_initial_state_hull``: a convex hull for CHVI
-    (``kind="chvi"``), the lexicographic hull for LHVI (``kind="lhvi"``). This is
-    the per-state V-ring at the start (not every state's hull). Read-only -- built
-    from the already-computed Q-ring.
+    """
+    The value hull at the initial state.
     """
     s0 = env.start_state
     vertices = np.concatenate([q_hulls[(s0, a)] for a in env.actions(s0)], axis=0)
@@ -178,9 +173,6 @@ def evaluate(env, policy, gamma, n_episodes, max_steps, seed):
 
 
 def print_start_hull(start_hull, start_state):
-    """Feature 1: print the start-state value hull (CHVI/LHVI), matching the old
-    'VALUE HULL AT INITIAL STATE' report -- the set of Pareto-optimal value
-    vectors achievable from the start."""
     print(f"\n{'=' * 60}")
     print("VALUE HULL AT INITIAL STATE")
     print('=' * 60)
@@ -193,10 +185,6 @@ def print_start_hull(start_hull, start_state):
 
 
 def print_analytic_v_start(algorithm, priority, v_start, start_hull, start_state):
-    """Feature 2: print the analytic value at the start state -- the value the
-    algorithm computed, distinct from the empirical rollout return. For the hull
-    algorithms this is the single hull vertex the PRIORITY-extracted policy
-    selects (one vertex read out of the start hull via lex-max)."""
     print(f"\nAnalytic V(start)  [start_state = {start_state}]")
     if algorithm == "vi":
         print(f"  scalar V(start) = {v_start:.4f}")
@@ -299,9 +287,6 @@ def main():
         if ALGORITHM in ("chvi", "lhvi"):
             q_hulls = blob.get("q_hulls")
             if q_hulls is None:
-                print("(this saved policy has no q_hulls -- it predates hull "
-                      "persistence; falling back to its frozen policy, which was "
-                      "extracted for whatever PRIORITY it was trained with)")
                 policy = blob["policy"]
                 start_hull = None
             else:
@@ -319,15 +304,13 @@ def main():
     else:
         raise ValueError(f"Unknown MODE {MODE!r}")
 
-    # Feature 1: print the start-state value hull (CHVI/LHVI).
     if ALGORITHM in ("chvi", "lhvi"):
         if start_hull is not None:
             print_start_hull(start_hull, env.start_state)
         else:
-            print("\n(start-state hull not in this saved policy; re-run in train "
+            print("\n(start-stxate hull not in this saved policy; re-run in train "
                   "mode to populate it)")
 
-    # Feature 2: print the analytic V(start), distinct from the rollout return.
     if v_start is not None or start_hull is not None:
         print_analytic_v_start(ALGORITHM, PRIORITY, v_start, start_hull, env.start_state)
     else:
@@ -348,9 +331,6 @@ def main():
             print(f"Weights = {WEIGHTS}")
             print(f"Mean scalarised return : {scal.mean():.4f}  (std {scal.std():.4f})")
 
-    # Optional local visualisation: only if requested AND the env provides the
-    # optional render_policy hook (envs without a renderer skip it gracefully).
-    # Off the automated/validation flow -- needs a real display.
     if VISUALISE:
         if hasattr(env, "render_policy"):
             print("\nVisualising policy (close the window or Ctrl-C to stop)...")

@@ -1,7 +1,5 @@
 """
 Check that the Resource Gathering wrapper satisfies the MOEnv contract.
-
-This it instantiates the RG wrapper and runs the generic contract checks. 
 """
 
 import os
