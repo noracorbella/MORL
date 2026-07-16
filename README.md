@@ -10,30 +10,27 @@ June 2026
 
 This repository implements four multi-objective value-iteration algorithms on a MOMDP grid environment:
 
-* **VI** - Value Iteration (weighted).
-* **CHVI** - Convex Hull Value Iteration (weight-free, computes the whole
-  convex hull, from which a policy for any weight or lexicographic order can be
-  extracted afterwards).
-* **LexVI** - Lexicographic Value Iteration (weight-free, solves one lexicographic
+* **VI** - Value Iteration.
+* **CHVI** - Convex Hull Value Iteration (computes the whole
+  convex hull, from which a policy for any weight or lexicographic order can be extracted afterwards).
+* **LexVI** - Lexicographic Value Iteration (solves one lexicographic
   order of the objectives).
-* **LHVI** - Lexicographic Hull Value Iteration (weight-free, a single run yields
-  an optimal policy for **every** lexicographic order (all `d!` of them for `d`
+* **LHVI** - Lexicographic Hull Value Iteration (a single run yields
+  an optimal policy for every lexicographic order (`d!` of them for `d`
   objectives)).
 
-The algorithms depend only on an abstract interface, [`MOEnv`](morl/core/env_interface.py), 
-and never on any concrete environment. To run the algorithms on a new problem you implement 
-one `MOEnv`subclass.
+The algorithms depend only on the [`MOEnv`](morl/core/env_interface.py) class, and not on any concrete environment.
 
 ---
 
 ## Repository structure
 
 ```
-morl/                         # the algorithms and the interface they depend on
+morl/
 ├── core/
 │   ├── env_interface.py      #   MOEnv abstract environment interface
-│   ├── hull_ops.py           #   convex hull operations shared by CHVI and LHVI
-│   └── validate_env.py       #   check_moenv_contract - a reusable contract checker
+│   ├── hull_ops.py           #   convex hull operations (for CHVI and LHVI)
+│   └── validate_env.py       #   checker for a new environment
 └── algorithms/
     ├── vi.py                 #   value_iteration
     ├── chvi.py               #   convexhull_vi
@@ -43,13 +40,10 @@ morl/                         # the algorithms and the interface they depend on
 environments/                 # MOEnv wrappers for the environments
 ├── deep_sea_treasure/        #   wrapper.py for DST (for standard, concave and mirrored)
 │   ├── wrapper.py
-│   └── check_wrapper.py      #   runs check_moenv_contract on the wrapper
 ├── resource_gathering/
 │   ├── wrapper.py
-│   └── check_wrapper.py
 └── automated_driving/        #   wrapper + simulator
     ├── wrapper.py
-    ├── check_wrapper.py
     └── simulator/            #  ADS simulator
 
 experiments/                  # ways to use the above
@@ -71,7 +65,7 @@ Requires **Python 3.12**. Install the dependencies (see
 `mo-gymnasium`) into a virtual environment:
 
 ```bash
-python3.12 -m venv .venv
+python3 -m venv .venv
 . .venv/bin/activate
 pip install -r requirements.txt
 ```
@@ -107,8 +101,7 @@ python experiments/run.py
 
 This constructs the wrapper, runs the algorithm, prints the analytic value 
 at the start state and an empirical rollout return, saves the policy (`train`)
-or loads it (`load`), and - if `VISUALISE = True` and a display is available -
-animates the policy in the environment's window.
+or loads it (`load`), and if `VISUALISE = True` it animates the policy in the environment's window.
 
 The five environment are `dst`, `dstc`, `dstm` (Deep Sea Treasure and its concave 
 / mirrored variants), `rg` (Resource Gathering) and `ads` (Automated Driving). 
@@ -119,7 +112,7 @@ The five environment are `dst`, `dstc`, `dstm` (Deep Sea Treasure and its concav
 
 ## The four algorithms
 
-Each entry point takes an `MOEnv` and a convergence threshold `theta` (max-norm).
+Each entry point takes an `MOEnv` and a convergence threshold `theta`.
 Policies are returned as dictionaries keyed by state.
 
 | Algorithm | Entry point | Returns |
@@ -159,8 +152,7 @@ For an environment two classes and four methods need provinding.
 | `transitions(state, action)` | the distribution as a list of `(prob, next_state, reward_vector)`. |
 | `is_terminal(state)` | whether the state is terminal. |
 
-Three points of `transitions` are worth stating explicitly (the full contract is in the 
-`MOEnv` docstrings):
+Three points of `transitions` are:
 
 * **Probabilities** are non-negative and sum to `1.0`; every `next_state` is one of
   `states()`; every `reward_vector` has length `n_objectives`.
@@ -172,13 +164,81 @@ Three points of `transitions` are worth stating explicitly (the full contract is
 
 ---
 
-## Notes
+## Reproducing the results
 
-* Each built-in wrapper ships a `check_wrapper.py` that runs
-  `check_moenv_contract` on it.
-* [`experiments/benchmark.py`](experiments/benchmark.py) times the weight-free
-  algorithms (CHVI, LexVI, LHVI) across the environments, separating model-build,
-  convergence and policy-extraction.
+All results in the thesis were produced with these settings:
+
+| Environment | `gamma` | `theta` | Priority orders |
+|---|---|---|---|
+| `dst`, `dstc`, `dstm` | 0.99 | 0.01 | `[0, 1]`, `[1, 0]` (d! = 2) |
+| `rg` | 0.7 | 0.01 | `[2, 1, 0]` (d! = 6) |
+| `ads` | 0.7 | 0.01 | `[2, 1, 0]` and `[0, 2, 1]` (d! = 6) |
+
+`GAMMA = None` in the configuration blocks already selects these gammas (they are
+the wrappers' defaults), and `THETA = 0.01` is the default everywhere. For ADS,
+the wrapper's default `degree_of_stochasticity = 1` (a pedestrian on cell `[3, 3]`
+moves stochastically) is the setting used for all thesis results. Note that the
+first ADS run builds its transition model (a few minutes) and caches it to disk;
+later runs load the cache in under a second.
+
+### Value hulls at the start state
+
+Set in `experiments/run.py`:
+
+```python
+ENVIRONMENT = "dst"    # or dstc | dstm | rg | ads
+ALGORITHM   = "chvi"   # or "lhvi"
+MODE        = "train"
+```
+
+and run `python experiments/run.py`. Training prints the
+`VALUE HULL AT INITIAL STATE` block: the achievable value vectors at the start
+state (the Pareto front for CHVI, the lexicographically optimal subset for LHVI),
+plus the vertex selected for the configured `PRIORITY`. These vertex lists are
+the hull results reported in the thesis.
+
+### Policy evaluation returns
+
+Set `EVALUATE = True` (and `MODE = "load"` to reuse a trained policy). The runner
+rolls the extracted policy out from the start state and reports the mean and
+standard deviation of the discounted vector return. On the deterministic
+environments (`dst`, `dstc`, `dstm`) every episode is identical, so one episode
+suffices and the empirical return equals the analytic `V(start)`. On the
+stochastic environments (`rg`, `ads`) increase `N_EVAL_EPISODES`; the sampling is
+seeded by `EVAL_SEED`, so a given seed and episode count is exactly reproducible.
+
+### Timing benchmarks
+
+Set the environment and algorithm in `experiments/benchmark.py`:
+
+```python
+ENVIRONMENT = "dst"    # dst | dstc | dstm | rg | ads
+ALGORITHM   = "chvi"   # chvi | lexvi | lhvi
+```
+
+and run `python experiments/benchmark.py`. Each run reports:
+
+* `model_build` - building the transition model from scratch (ADS deliberately
+  bypasses its disk cache here so this is the real cost);
+* `convergence` and per-order `extraction`;
+* `algo total` (convergence + extraction) - the number used to compare
+  CHVI / LexVI / LHVI against each other;
+* `combined` (model build + convergence + extraction) - the full from-scratch cost.
+
+Timings are wall-clock and machine-dependent: absolute values will differ from
+the thesis tables on other hardware, but the relative comparisons between
+algorithms are what the thesis results rest on.
+
+### Hull figures
+
+The 2D/3D hull figures were produced with
+[`Plots/HullPlotter2D.py`](Plots/HullPlotter2D.py) and
+[`Plots/HullPlotter3D.py`](Plots/HullPlotter3D.py). These scripts do not read
+files: the vertex arrays (`chvi_points`, `lexhull_points`) are pasted in at the
+top of each script. To regenerate a figure, run CHVI/LHVI as above, copy the
+printed start-state hull vertices into those arrays, and run the script
+(requires `matplotlib`, not in `requirements.txt`).
+
 
 ---
 

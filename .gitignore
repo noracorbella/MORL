@@ -37,3 +37,7 @@ OtherEnvs/timing_barplots/
 
 
 validation/
+
+environments/automated_driving/check_wrapper.py
+environments/deep_sea_treasure/check_wrapper.py
+environments/resource_gathering/check_wrapper.py
