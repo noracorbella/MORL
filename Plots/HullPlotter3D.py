@@ -6,7 +6,7 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 # ══════════════════════════════════════════════════════════════════════════════
 # CHANGE THIS to generate plots for a different environment
 # Options: 'ADS', 'DST', 'DSTc', 'DSTm', 'RG'
-ENV = 'RG'
+ENV = 'DST'
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ── Environment data ──────────────────────────────────────────────────────────
@@ -256,6 +256,12 @@ def make_fig():
     fig.patch.set_facecolor('white')
     proj = '3d' if is_3d else None
     ax   = fig.add_subplot(111, projection=proj)
+    if is_3d:
+        # Honor draw order instead of matplotlib's depth-based re-sorting, so the
+        # LexHull (drawn last) always renders on top of the Convex Hull -- gives
+        # the same layering across environments (otherwise the larger CHVI hull
+        # sorts in front and hides the LexHull, as happens for ADS).
+        ax.computed_zorder = False
     return fig, ax
 
 # ── Plot 1: CHVI only ─────────────────────────────────────────────────────────
