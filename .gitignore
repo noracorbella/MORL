@@ -12,9 +12,8 @@ __pycache__/
 *.avi
 videos/
 
-AutomatedDriving/Comparison/allpolicies/
-AutomatedDriving/Comparison/policies/
-
+AutomatedDriving/
+AutomatedDriving/
 *.docx
 *.pdf
 *.pptx
@@ -23,14 +22,7 @@ Bibliografia/
 
 FirstSteps/
 
-OtherEnvs/BreakableBottles/
-OtherEnvs/FruitTree/
-OtherEnvs/RandomMOMDP/
-AutomatedDriving/Other/
-
-
-OtherEnvs/DST_plot_timings.py
-OtherEnvs/timing_barplots/
+OtherEnvs/
 
 # Claude Code working directory
 .claude/
