@@ -3,13 +3,10 @@ import matplotlib.pyplot as plt
 from scipy.spatial import ConvexHull
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-# ══════════════════════════════════════════════════════════════════════════════
-# CHANGE THIS to generate plots for a different environment
-# Options: 'ADS', 'DST', 'DSTc', 'DSTm', 'RG'
-ENV = 'DST'
-# ══════════════════════════════════════════════════════════════════════════════
+# CHANGE to generate plots for a different environment
+ENV = 'DST' # Options: 'ADS', 'DST', 'DSTc', 'DSTm', 'RG'
 
-# ── Environment data ──────────────────────────────────────────────────────────
+# Environment data
 ENVS = {
     'ADS': {
         'chvi_points': np.array([
@@ -131,7 +128,7 @@ ENVS = {
     },
 }
 
-# ── Load selected environment ─────────────────────────────────────────────────
+# Load environment
 cfg             = ENVS[ENV]
 chvi_points     = cfg['chvi_points']
 lexhull_points  = cfg['lexhull_points']
@@ -139,11 +136,10 @@ axis_labels     = cfg['axis_labels']
 output_prefix   = cfg['output_prefix']
 is_3d           = chvi_points.shape[1] == 3
 
-# ── Hull computation ──────────────────────────────────────────────────────────
+# Hull computation
 chvi_hull = ConvexHull(chvi_points)
 
-# LexHull may degenerate to a line segment in 2D (< 3 points)
-min_points = chvi_points.shape[1] + 1  # 3 for 2D, 4 for 3D
+min_points = chvi_points.shape[1] + 1 
 lexhull_hull = ConvexHull(lexhull_points) if len(lexhull_points) >= min_points else None
 
 print(f'[{ENV}] CHVI:    {len(chvi_points)} points, {len(chvi_hull.vertices)} hull vertices')
@@ -152,16 +148,13 @@ if lexhull_hull:
 else:
     print(f'[{ENV}] LexHull: {len(lexhull_points)} points (line segment, no hull)')
 
-# ── Colors ────────────────────────────────────────────────────────────────────
 CHVI_COLOR    = '#1a78c2'
 LEXHULL_COLOR = '#d84315'
 ALPHA_FACE    = 0.20
 GRID_COLOR    = '#cccccc'
 
-# ── 3D helpers ────────────────────────────────────────────────────────────────
 def add_hull_3d(ax, points, hull, face_color, edge_color, label):
     if hull is None:
-        # 3 coplanar points: draw as a filled triangle
         poly = Poly3DCollection([points], alpha=ALPHA_FACE,
                                 facecolor=face_color, edgecolor=edge_color, linewidth=0.6)
         ax.add_collection3d(poly)
@@ -205,17 +198,14 @@ def style_ax_3d(ax):
     ax.set_yticklabels([])
     ax.set_zticklabels([])
 
-# ── 2D helpers ────────────────────────────────────────────────────────────────
 def add_hull_2d(ax, points, hull, face_color, edge_color, label):
     if hull is None:
-        # Degenerate case: just draw the line segment and its two endpoints
         ax.plot(points[:, 0], points[:, 1],
                 color=edge_color, linewidth=1.2, label=label)
         ax.scatter(points[:, 0], points[:, 1],
                    color=edge_color, s=70, linewidth=0.8, zorder=6)
         return
 
-    # Normal case: filled convex hull polygon
     hull_pts = points[hull.vertices]
     polygon  = plt.Polygon(hull_pts, closed=True,
                            facecolor=face_color, edgecolor=edge_color,
@@ -238,7 +228,6 @@ def style_ax_2d(ax):
     ax.set_xticklabels([])
     ax.set_yticklabels([])
 
-# ── Generic wrappers that dispatch on dimensionality ──────────────────────────
 def add_hull(ax, points, hull, face_color, edge_color, label):
     if is_3d:
         add_hull_3d(ax, points, hull, face_color, edge_color, label)
@@ -257,34 +246,27 @@ def make_fig():
     proj = '3d' if is_3d else None
     ax   = fig.add_subplot(111, projection=proj)
     if is_3d:
-        # Honor draw order instead of matplotlib's depth-based re-sorting, so the
-        # LexHull (drawn last) always renders on top of the Convex Hull -- gives
-        # the same layering across environments (otherwise the larger CHVI hull
-        # sorts in front and hides the LexHull, as happens for ADS).
         ax.computed_zorder = False
     return fig, ax
 
-# ── Plot 1: CHVI only ─────────────────────────────────────────────────────────
 fig1, ax1 = make_fig()
 add_hull(ax1, chvi_points, chvi_hull, CHVI_COLOR, CHVI_COLOR, 'Convex Hull')
 style_ax(ax1)
 plt.tight_layout(pad=2.0)
 out1 = f'hull_{output_prefix}_chvi.png'
 plt.savefig(out1, dpi=150, bbox_inches='tight', facecolor='white')
-print(f'Saved → {out1}')
+print(f'Saved in {out1}')
 plt.close()
 
-# ── Plot 2: LexHull only ──────────────────────────────────────────────────────
 fig2, ax2 = make_fig()
 add_hull(ax2, lexhull_points, lexhull_hull, LEXHULL_COLOR, LEXHULL_COLOR, 'LexHull')
 style_ax(ax2)
 plt.tight_layout(pad=2.0)
 out2 = f'hull_{output_prefix}_lexhull.png'
 plt.savefig(out2, dpi=150, bbox_inches='tight', facecolor='white')
-print(f'Saved → {out2}')
+print(f'Saved in {out2}')
 plt.close()
 
-# ── Plot 3: Overlay ───────────────────────────────────────────────────────────
 fig3, ax3 = make_fig()
 add_hull(ax3, chvi_points,    chvi_hull,    CHVI_COLOR,    CHVI_COLOR,    'Convex Hull')
 add_hull(ax3, lexhull_points, lexhull_hull, LEXHULL_COLOR, LEXHULL_COLOR, 'Lexicographic Hull')
@@ -293,5 +275,5 @@ ax3.legend(loc='best', fontsize=8, facecolor='white', edgecolor='#cccccc')
 plt.tight_layout(pad=2.0)
 out3 = f'hull_{output_prefix}_overlay.png'
 plt.savefig(out3, dpi=150, bbox_inches='tight', facecolor='white')
-print(f'Saved → {out3}')
+print(f'Saved in {out3}')
 plt.close()

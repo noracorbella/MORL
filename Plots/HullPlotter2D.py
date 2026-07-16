@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from scipy.spatial import ConvexHull
 
-# ── Data ─────────────────────────────────────────────────────────────────────
+# Data
 chvi_points = np.array([
     [ -1.8141,  -1.2005,  -1.7150],
     [ -2.3223,   0.0000,   0.0000],
@@ -55,20 +55,16 @@ projections = [(0, 1), (0, 2), (1, 2)]
 labels      = ['Obj 1', 'Obj 2', 'Obj 3']
 
 def plot_hull_2d(ax, points, color, label, marker='o'):
-    """Project points onto 2D, draw convex hull polygon and scatter."""
     hull = ConvexHull(points)
-    # Close the polygon
     verts = np.append(hull.vertices, hull.vertices[0])
     ax.fill(points[hull.vertices, 0], points[hull.vertices, 1],
             alpha=0.15, color=color)
     ax.plot(points[verts, 0], points[verts, 1],
             color=color, linewidth=1.8, alpha=0.85)
-    # Interior points (not on hull)
     interior = np.setdiff1d(np.arange(len(points)), hull.vertices)
     if len(interior):
         ax.scatter(points[interior, 0], points[interior, 1],
                    color=color, s=22, alpha=0.5, marker=marker, zorder=4)
-    # Hull vertices
     ax.scatter(points[hull.vertices, 0], points[hull.vertices, 1],
                color=color, s=55, edgecolors='white', linewidth=0.7,
                marker=marker, zorder=5, label=label)
@@ -97,7 +93,7 @@ for ax, (i, j) in zip(axes, projections):
               facecolor='white',
               loc='best', framealpha=0.85)
 
-fig.suptitle('Convex Hull Comparison: CHVI vs LexHull — 2D Projections',
+fig.suptitle('Hull Comparison, 2D Projection: CHVI vs LHVI',
              color='white', fontsize=14, fontweight='bold', y=1.02)
 
 plt.tight_layout()
@@ -106,5 +102,4 @@ plt.savefig(
     dpi=150, bbox_inches='tight',
     facecolor='white',
 )
-print("Saved → hull_comparison_2d.png")
 plt.show()
