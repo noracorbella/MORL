@@ -1,7 +1,5 @@
 # Multi-Objective Reinforcement Learning: Computing All Optimal Policies with Many Objectives
 
-### Master's Thesis - University Master's Degree in Modelling for Science and Engineering
-
 **Author:** Nora Corbella Alcántara
 **Supervisor:** Dr. Manel Rodríguez Soto
 June 2026
